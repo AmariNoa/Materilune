@@ -1,0 +1,38 @@
+{
+  "languageDisplayName": "English",
+  "materilune": {
+    "language": {
+      "label": "Language",
+      "shared_note": "This language setting is shared across the whole Unity Editor and applies to all packages that use Unity Editor Localization Core."
+    },
+    "setup": {
+      "orphan": {
+        "primary_title": "Materilune Setup",
+        "primary_message": "Some operation objects no longer have a corresponding mesh. Choose how to handle them.",
+        "primary_delete_all": "Delete all",
+        "primary_editor_only_all": "Keep all as EditorOnly",
+        "primary_select_each": "Select individually",
+        "each_title": "Materilune Setup",
+        "each_message": "This operation object no longer has a corresponding mesh.",
+        "each_delete": "Delete",
+        "each_editor_only": "Keep as EditorOnly",
+        "each_cancel": "Cancel"
+      },
+      "error": {
+        "no_target": "No target object is selected.",
+        "no_renderer": "No renderer was found under the target object."
+      }
+    },
+    "inspector": {
+      "root_title": "Materilune Swap Root",
+      "override_title": "Materilune Swap Override",
+      "available_materials": "Available materials",
+      "swaps": "Material swaps",
+      "swap_from": "From",
+      "swap_to": "To"
+    },
+    "warning": {
+      "managed_by_materilune": "The materials of this renderer are managed by Materilune. Edit them from the Materilune objects instead."
+    }
+  }
+}

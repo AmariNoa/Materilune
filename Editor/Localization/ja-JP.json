@@ -1,0 +1,38 @@
+{
+  "languageDisplayName": "日本語",
+  "materilune": {
+    "language": {
+      "label": "言語",
+      "shared_note": "この言語設定は Unity Editor 全体で共有され、Unity Editor Localization Core を使用するすべてのパッケージに適用されます。"
+    },
+    "setup": {
+      "orphan": {
+        "primary_title": "Materilune セットアップ",
+        "primary_message": "一部の操作用オブジェクトに対応するメッシュがなくなりました。処理方法を選択してください。",
+        "primary_delete_all": "すべて削除",
+        "primary_editor_only_all": "すべて EditorOnly として残す",
+        "primary_select_each": "個別に選択",
+        "each_title": "Materilune セットアップ",
+        "each_message": "この操作用オブジェクトに対応するメッシュがなくなりました。",
+        "each_delete": "削除",
+        "each_editor_only": "EditorOnly として残す",
+        "each_cancel": "中止"
+      },
+      "error": {
+        "no_target": "対象オブジェクトが選択されていません。",
+        "no_renderer": "対象オブジェクトの配下に Renderer が見つかりませんでした。"
+      }
+    },
+    "inspector": {
+      "root_title": "Materilune Swap Root",
+      "override_title": "Materilune Swap Override",
+      "available_materials": "使用可能なマテリアル",
+      "swaps": "マテリアルの差し替え",
+      "swap_from": "変更元",
+      "swap_to": "変更先"
+    },
+    "warning": {
+      "managed_by_materilune": "この Renderer のマテリアルは Materilune により管理されています。代わりに Materilune オブジェクトから編集してください。"
+    }
+  }
+}
