@@ -1,0 +1,17 @@
+{
+    "name": "com.amari-noa.materilune.runtime",
+    "rootNamespace": "com.amari_noa.materilune.runtime",
+    "references": [
+        "nadena.dev.modular-avatar.core",
+        "nadena.dev.ndmf.runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

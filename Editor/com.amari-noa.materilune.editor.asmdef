@@ -1,0 +1,22 @@
+{
+    "name": "com.amari-noa.materilune.editor",
+    "rootNamespace": "com.amari_noa.materilune.editor",
+    "references": [
+        "com.amari-noa.materilune.runtime",
+        "com.amari-noa.unity-editor-localization-core.editor",
+        "nadena.dev.modular-avatar.core",
+        "nadena.dev.ndmf",
+        "nadena.dev.ndmf.runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
