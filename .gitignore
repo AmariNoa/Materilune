@@ -1,0 +1,28 @@
+# Working documents (excluded from version control)
+/docs/
+/docs.meta
+
+# AI agent instruction files (kept local only)
+/AGENTS.md
+/AGENTS.md.meta
+/CLAUDE.md
+/CLAUDE.md.meta
+
+# AI agent working directories
+/.agents/
+
+# Unity meta for extensionless LICENSE (aligned with sibling repositories)
+LICENSE.meta
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE generated files
+.idea/
+.vs/
+*.csproj
+*.sln
+*.suo
+*.user
+*.tmp
