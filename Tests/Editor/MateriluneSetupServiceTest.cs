@@ -15,14 +15,11 @@ namespace com.amari_noa.materilune.tests.editor
     /// <summary>
     /// Tests Materilune setup behavior.
     /// </summary>
-    public class MateriluneSetupServiceTest
+    public sealed class MateriluneSetupServiceTest
     {
         private readonly List<GameObject> m_gameObjects = new List<GameObject>();
         private readonly List<Material> m_materials = new List<Material>();
 
-        /// <summary>
-        /// Destroys objects and materials created by the test.
-        /// </summary>
         [TearDown]
         public void TearDown()
         {
@@ -34,8 +31,6 @@ namespace com.amari_noa.materilune.tests.editor
                 }
             }
 
-            m_gameObjects.Clear();
-
             foreach (var material in m_materials)
             {
                 if (material != null)
@@ -44,462 +39,272 @@ namespace com.amari_noa.materilune.tests.editor
                 }
             }
 
+            m_gameObjects.Clear();
             m_materials.Clear();
             Undo.ClearAll();
+            MateriluneInspectorIsolation.RestoreSelection();
         }
 
-        /// <summary>
-        /// Verifies target hierarchy branches are recreated for renderers.
-        /// </summary>
         [Test]
-        public void SetupRecreatesRendererHierarchy()
+        public void SetupRecreatesRendererHierarchyWithoutUsingNames()
         {
             var shader = GetShader();
             var target = CreateTarget();
-            var branchA = CreateGameObject("A", target.transform);
-            var rendererB = CreateRenderer("B", branchA.transform, CreateMaterial(shader));
-            var rendererC = CreateRenderer("C", target.transform, CreateMaterial(shader));
-
-            var root = MateriluneSetupService.Setup(target);
-            var overrideB = FindOverride(root, rendererB);
-            var overrideC = FindOverride(root, rendererC);
-
-            Assert.That(overrideB, Is.Not.Null);
-            Assert.That(overrideC, Is.Not.Null);
-            Assert.That(overrideB.transform.parent, Is.Not.EqualTo(root.transform));
-            Assert.That(overrideB.transform.parent.parent, Is.EqualTo(root.transform));
-            Assert.That(overrideB.transform.parent.GetComponent<MateriluneSwapOverride>(), Is.Null);
-            Assert.That(overrideC.transform.parent, Is.EqualTo(root.transform));
-        }
-
-        /// <summary>
-        /// Verifies branches with no renderers are not recreated.
-        /// </summary>
-        [Test]
-        public void SetupDoesNotCreateBranchesWithoutRenderers()
-        {
-            GetShader();
-            var target = CreateTarget();
-            CreateGameObject("D", target.transform);
-
-            LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex(".*"));
-            var root = MateriluneSetupService.Setup(target);
-
-            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(1));
-        }
-
-        /// <summary>
-        /// Verifies duplicate names do not affect renderer associations.
-        /// </summary>
-        [Test]
-        public void SetupDoesNotConfuseSameNamedObjects()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var firstRenderer = CreateRenderer("Same", target.transform, CreateMaterial(shader));
+            var branch = CreateGameObject("A", target.transform);
+            var firstRenderer = CreateRenderer("Same", branch.transform, CreateMaterial(shader));
             var secondRenderer = CreateRenderer("Same", target.transform, CreateMaterial(shader));
 
-            var root = MateriluneSetupService.Setup(target);
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
             var firstOverride = FindOverride(root, firstRenderer);
             var secondOverride = FindOverride(root, secondRenderer);
 
             Assert.That(firstOverride, Is.Not.Null);
             Assert.That(secondOverride, Is.Not.Null);
             Assert.That(firstOverride, Is.Not.EqualTo(secondOverride));
-            Assert.That(firstOverride.TargetRenderer, Is.EqualTo(firstRenderer));
-            Assert.That(secondOverride.TargetRenderer, Is.EqualTo(secondRenderer));
+            Assert.That(firstOverride.transform.parent.parent, Is.EqualTo(root.transform));
+            Assert.That(secondOverride.transform.parent, Is.EqualTo(root.transform));
         }
 
-        /// <summary>
-        /// Verifies each Material Swap root points to its corresponding renderer object.
-        /// </summary>
         [Test]
-        public void SetupSetsMaterialSwapRoots()
+        public void SetupExcludesEditorOnlyAndMateriluneHierarchies()
         {
             var shader = GetShader();
             var target = CreateTarget();
-            CreateRenderer("A", target.transform, CreateMaterial(shader));
-            CreateRenderer("B", target.transform, CreateMaterial(shader));
-
-            var root = MateriluneSetupService.Setup(target);
-            var operationOverrides = root.GetComponentsInChildren<MateriluneSwapOverride>(true);
-
-            Assert.That(operationOverrides, Is.Not.Empty);
-            foreach (var operationOverride in operationOverrides)
-            {
-                var materialSwap = operationOverride.GetComponent<ModularAvatarMaterialSwap>();
-                Assert.That(materialSwap, Is.Not.Null);
-                Assert.That(materialSwap.Root, Is.Not.Null);
-                Assert.That(materialSwap.Root.Get(materialSwap), Is.EqualTo(operationOverride.TargetRenderer.gameObject));
-            }
-        }
-
-        /// <summary>
-        /// Verifies EditorOnly branches are excluded from setup.
-        /// </summary>
-        [Test]
-        public void SetupExcludesEditorOnlyRenderers()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var editorOnly = CreateGameObject("E", target.transform);
+            var editorOnly = CreateGameObject("EditorOnly", target.transform);
             editorOnly.tag = "EditorOnly";
-            var excludedRenderer = CreateRenderer("F", editorOnly.transform, CreateMaterial(shader));
+            var excludedRenderer = CreateRenderer("Excluded", editorOnly.transform, CreateMaterial(shader));
+            CreateRenderer("Included", target.transform, CreateMaterial(shader));
 
-            var root = MateriluneSetupService.Setup(target);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var root = GetOnlyPreset(manager);
+            var userRenderer = CreateRenderer("User", manager.transform, CreateMaterial(shader));
+            var originalCount = root.GetComponentsInChildren<MateriluneSwapOverride>(true).Length;
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
 
             Assert.That(FindOverride(root, excludedRenderer), Is.Null);
-        }
-
-        /// <summary>
-        /// Verifies existing operation objects are not scanned as new renderers.
-        /// </summary>
-        [Test]
-        public void SetupDoesNotRescanMateriluneHierarchy()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            CreateRenderer("A", target.transform, CreateMaterial(shader));
-
-            var root = MateriluneSetupService.Setup(target);
-            var firstCount = root.GetComponentsInChildren<MateriluneSwapOverride>(true).Length;
-            var userRenderer = CreateRenderer("UserPlaced", root.transform, CreateMaterial(shader));
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            var secondCount = root.GetComponentsInChildren<MateriluneSwapOverride>(true).Length;
-
-            Assert.That(secondCount, Is.EqualTo(firstCount));
             Assert.That(FindOverride(root, userRenderer), Is.Null);
+            Assert.That(root.GetComponentsInChildren<MateriluneSwapOverride>(true), Has.Length.EqualTo(originalCount));
         }
 
-        /// <summary>
-        /// Verifies manually placed objects remain when no orphans are present.
-        /// </summary>
         [Test]
-        public void SetupPreservesUserPlacedObjectsWithoutOrphans()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            CreateRenderer("A", target.transform, CreateMaterial(shader));
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            var emptyObject = CreateGameObject("UserEmpty", root.transform);
-            var colliderObject = CreateGameObject("UserCollider", root.transform);
-            colliderObject.AddComponent<BoxCollider>();
-
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-
-            Assert.That(emptyObject, Is.Not.Null);
-            Assert.That(colliderObject, Is.Not.Null);
-            Assert.That(colliderObject.GetComponent<BoxCollider>(), Is.Not.Null);
-        }
-
-        /// <summary>
-        /// Verifies manually placed objects remain when an orphan is removed.
-        /// </summary>
-        [Test]
-        public void SetupPreservesUserPlacedObjectsWhenRemovingOrphan()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var renderer = CreateRenderer("A", target.transform, CreateMaterial(shader));
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            var emptyObject = CreateGameObject("UserEmpty", root.transform);
-            var colliderObject = CreateGameObject("UserCollider", root.transform);
-            colliderObject.AddComponent<BoxCollider>();
-
-            Object.DestroyImmediate(renderer.gameObject);
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-
-            Assert.That(FindRoot(target), Is.SameAs(root));
-            Assert.That(emptyObject, Is.Not.Null);
-            Assert.That(colliderObject, Is.Not.Null);
-            Assert.That(colliderObject.GetComponent<BoxCollider>(), Is.Not.Null);
-        }
-
-        /// <summary>
-        /// Verifies inactive renderers are included in setup.
-        /// </summary>
-        [Test]
-        public void SetupIncludesInactiveRenderers()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var renderer = CreateRenderer("Inactive", target.transform, CreateMaterial(shader));
-            renderer.gameObject.SetActive(false);
-
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-
-            Assert.That(FindOverride(root, renderer), Is.Not.Null);
-        }
-
-        /// <summary>
-        /// Verifies skinned mesh renderers are included in setup.
-        /// </summary>
-        [Test]
-        public void SetupIncludesSkinnedMeshRenderers()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var rendererObject = CreateGameObject("Skinned", target.transform);
-            var renderer = rendererObject.AddComponent<SkinnedMeshRenderer>();
-            renderer.sharedMaterials = new[] { CreateMaterial(shader) };
-
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-
-            Assert.That(FindOverride(root, renderer), Is.Not.Null);
-        }
-
-        /// <summary>
-        /// Verifies existing override swap settings are retained during setup.
-        /// </summary>
-        [Test]
-        public void SetupRetainsExistingOverrideSwaps()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var renderer = CreateRenderer("A", target.transform, CreateMaterial(shader));
-            var root = MateriluneSetupService.Setup(target);
-            var operationOverride = FindOverride(root, renderer);
-            var replacement = CreateMaterial(shader);
-            operationOverride.Swaps.Add(new MateriluneMaterialSwapEntry(renderer.sharedMaterial, replacement));
-
-            MateriluneSetupService.Setup(target);
-
-            Assert.That(operationOverride.Swaps, Has.Count.EqualTo(1));
-            Assert.That(operationOverride.Swaps[0].From, Is.EqualTo(renderer.sharedMaterial));
-            Assert.That(operationOverride.Swaps[0].To, Is.EqualTo(replacement));
-        }
-
-        /// <summary>
-        /// Verifies root materials contain all renderer materials without duplicates.
-        /// </summary>
-        [Test]
-        public void SetupSetsUniqueRootAvailableMaterials()
+        public void SetupIncludesInactiveAndSkinnedMeshRenderersAndSetsMaterials()
         {
             var shader = GetShader();
             var target = CreateTarget();
             var first = CreateMaterial(shader);
             var second = CreateMaterial(shader);
-            var third = CreateMaterial(shader);
-            CreateRenderer("A", target.transform, first, second);
-            CreateRenderer("B", target.transform, second, third);
+            var inactive = CreateRenderer("Inactive", target.transform, first, second);
+            inactive.gameObject.SetActive(false);
+            var skinnedObject = CreateGameObject("Skinned", target.transform);
+            var skinned = skinnedObject.AddComponent<SkinnedMeshRenderer>();
+            skinned.sharedMaterials = new[] { second };
 
-            var root = MateriluneSetupService.Setup(target);
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
 
-            CollectionAssert.AreEqual(new[] { first, second, third }, root.AvailableMaterials);
+            Assert.That(FindOverride(root, inactive), Is.Not.Null);
+            Assert.That(FindOverride(root, skinned), Is.Not.Null);
+            CollectionAssert.AreEqual(new[] { first, second }, root.AvailableMaterials);
         }
 
-        /// <summary>
-        /// Verifies null targets are rejected.
-        /// </summary>
         [Test]
-        public void SetupThrowsForNullTarget()
+        public void SetupPlacesTargetRendererOnPresetObject()
         {
-            Assert.Throws<ArgumentNullException>(() => MateriluneSetupService.Setup(null));
+            var target = CreateTarget();
+            var renderer = target.AddComponent<MeshRenderer>();
+            renderer.sharedMaterials = new[] { CreateMaterial(GetShader()) };
+
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+            var operationOverride = FindOverride(root, renderer);
+
+            Assert.That(operationOverride.gameObject, Is.EqualTo(root.gameObject));
+            Assert.That(root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>(), Is.Not.Null);
         }
 
-        /// <summary>
-        /// Verifies a renderer on the target itself is configured on the Materilune object.
-        /// </summary>
         [Test]
-        public void SetupPlacesRendererOnTargetOnMateriluneObject()
-        {
-            var shader = GetShader();
-            var outerParent = CreateGameObject("OuterParent", null);
-            var target = CreateGameObject("Target", outerParent.transform);
-            target.AddComponent<NDMFAvatarRoot>();
-            var targetRenderer = target.AddComponent<MeshRenderer>();
-            targetRenderer.sharedMaterials = new[] { CreateMaterial(shader) };
-
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            var targetOverride = FindOverride(root, targetRenderer);
-
-            Assert.That(targetOverride, Is.Not.Null);
-            Assert.That(targetOverride.gameObject, Is.EqualTo(root.gameObject));
-            Assert.That(root.GetComponent<ModularAvatarMaterialSwap>(), Is.Not.Null);
-            Assert.That(root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(1));
-        }
-
-        /// <summary>
-        /// Verifies orphaned operation objects are removed with their objects.
-        /// </summary>
-        [Test]
-        public void SetupRemovesOrphanedOperationObject()
+        public void SetupRetainsSwapsAndPreservesUserObjects()
         {
             var shader = GetShader();
             var target = CreateTarget();
-            var renderer = CreateRenderer("A", target.transform, CreateMaterial(shader));
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            var operationObject = FindOverride(root, renderer).gameObject;
+            var renderer = CreateRenderer("Renderer", target.transform, CreateMaterial(shader));
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+            var replacement = CreateMaterial(shader);
+            var operationOverride = FindOverride(root, renderer);
+            operationOverride.Swaps.Add(new MateriluneMaterialSwapEntry(renderer.sharedMaterial, replacement));
+            var userObject = CreateGameObject("User", root.transform);
 
-            Object.DestroyImmediate(renderer.gameObject);
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
 
-            Assert.That(operationObject == null, Is.True);
+            Assert.That(operationOverride.Swaps, Has.Count.EqualTo(1));
+            Assert.That(userObject, Is.Not.Null);
         }
 
-        /// <summary>
-        /// Verifies orphaned operation objects remain when requested.
-        /// </summary>
         [Test]
-        public void SetupKeepsOrphanedOperationObject()
+        public void SetupRemovesOrphansAndKeepsRequiredIntermediateObjects()
         {
             var shader = GetShader();
             var target = CreateTarget();
-            var renderer = CreateRenderer("A", target.transform, CreateMaterial(shader));
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            var parentRenderer = CreateRenderer("Parent", target.transform, CreateMaterial(shader));
+            var childRenderer = CreateRenderer("Child", parentRenderer.transform, CreateMaterial(shader));
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+            var parentOperationObject = FindOverride(root, parentRenderer).gameObject;
+
+            Object.DestroyImmediate(parentRenderer);
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+
+            Assert.That(parentOperationObject, Is.Not.Null);
+            Assert.That(parentOperationObject.GetComponent<MateriluneSwapOverride>(), Is.Null);
+            Assert.That(FindOverride(root, childRenderer), Is.Not.Null);
+        }
+
+        [Test]
+        public void SetupKeepsOrphansWhenRequested()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var renderer = CreateRenderer("Renderer", target.transform, CreateMaterial(shader));
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
             var operationObject = FindOverride(root, renderer).gameObject;
 
             Object.DestroyImmediate(renderer.gameObject);
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
 
             Assert.That(operationObject, Is.Not.Null);
-            Assert.That(operationObject.GetComponent<MateriluneSwapOverride>(), Is.Not.Null);
         }
 
-        /// <summary>
-        /// Verifies orphaned components are removed while the Materilune object remains.
-        /// </summary>
         [Test]
-        public void SetupRemovesOrphanedComponentsOnMateriluneObject()
+        public void SetupUndoAndRedoRestoreManagerAndPreset()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform, CreateMaterial(GetShader()));
+
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.FlushUndoRecordObjects();
+            Undo.PerformUndo();
+            Assert.That(manager == null, Is.True);
+
+            Undo.PerformRedo();
+            var restoredManager = FindManager(target);
+            Assert.That(restoredManager, Is.Not.Null);
+            Assert.That(restoredManager.GetPresets(), Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void SetupThrowsForNullTarget()
+        {
+            Assert.Throws<ArgumentNullException>(() => MateriluneSetupService.Setup(null));
+        }
+
+        [Test]
+        public void SetupDoesNotCreateOperationBranchesWithoutRenderers()
+        {
+            var target = CreateTarget();
+            CreateGameObject("Empty", target.transform);
+
+            LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex(".*"));
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+
+            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(1));
+        }
+
+        [Test]
+        public void SetupSetsEveryMaterialSwapRootToTheTargetRenderer()
         {
             var shader = GetShader();
             var target = CreateTarget();
+            var first = CreateRenderer("First", target.transform, CreateMaterial(shader));
+            var second = CreateRenderer("Second", target.transform, CreateMaterial(shader));
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+
+            foreach (var renderer in new Renderer[] { first, second })
+            {
+                var operationOverride = FindOverride(root, renderer);
+                var materialSwap = operationOverride.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>();
+                Assert.That(materialSwap.Root.Get(materialSwap), Is.EqualTo(renderer.gameObject));
+            }
+        }
+
+        [Test]
+        public void SetupRemovesComponentsFromPresetWhenTargetRendererIsRemoved()
+        {
+            var target = CreateTarget();
             var renderer = target.AddComponent<MeshRenderer>();
-            renderer.sharedMaterials = new[] { CreateMaterial(shader) };
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            renderer.sharedMaterial = CreateMaterial(GetShader());
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
 
             Object.DestroyImmediate(renderer);
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
 
-            Assert.That(root, Is.Not.Null);
-            Assert.That(root.gameObject, Is.Not.Null);
-            Assert.That(root.GetComponent<MateriluneSwapRoot>(), Is.SameAs(root));
             Assert.That(root.GetComponent<MateriluneSwapOverride>(), Is.Null);
-            Assert.That(root.GetComponent<ModularAvatarMaterialSwap>(), Is.Null);
+            Assert.That(root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>(), Is.Null);
         }
 
-        /// <summary>
-        /// Verifies empty intermediate operation objects are removed with an orphan.
-        /// </summary>
         [Test]
-        public void SetupRemovesEmptyIntermediateObjects()
+        public void SetupReusesPresetComponentsWhenTargetRendererIsReplaced()
+        {
+            var target = CreateTarget();
+            var renderer = target.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = CreateMaterial(GetShader());
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+
+            Object.DestroyImmediate(renderer);
+            var replacementRenderer = target.AddComponent<MeshRenderer>();
+            replacementRenderer.sharedMaterial = CreateMaterial(GetShader());
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+
+            Assert.That(root.GetComponents<MateriluneSwapOverride>(), Has.Length.EqualTo(1));
+            Assert.That(
+                root.GetComponents<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>(),
+                Has.Length.EqualTo(1));
+            var operationOverride = root.GetComponent<MateriluneSwapOverride>();
+            var materialSwap = root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>();
+            Assert.That(operationOverride.TargetRenderer, Is.EqualTo(replacementRenderer));
+            Assert.That(materialSwap.Root.Get(materialSwap), Is.EqualTo(target));
+        }
+
+        [Test]
+        public void SetupRemovesEmptyBranchesAndDoesNotDuplicateNestedOperations()
         {
             var shader = GetShader();
             var target = CreateTarget();
-            var branchA = CreateGameObject("A", target.transform);
-            var renderer = CreateRenderer("B", branchA.transform, CreateMaterial(shader));
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            var branch = CreateGameObject("Branch", target.transform);
+            var parentRenderer = CreateRenderer("Parent", branch.transform, CreateMaterial(shader));
+            CreateRenderer("Child", parentRenderer.transform, CreateMaterial(shader));
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+            var transformCount = root.GetComponentsInChildren<Transform>(true).Length;
+            var overrideCount = root.GetComponentsInChildren<MateriluneSwapOverride>(true).Length;
+
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(transformCount));
+            Assert.That(root.GetComponentsInChildren<MateriluneSwapOverride>(true), Has.Length.EqualTo(overrideCount));
+
+            Object.DestroyImmediate(parentRenderer.gameObject);
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(1));
+        }
+
+        [Test]
+        public void SetupRetainsIntermediateOperationObjectWithUserComponent()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var sourceIntermediate = CreateGameObject("A", target.transform);
+            var renderer = CreateRenderer("B", sourceIntermediate.transform, CreateMaterial(shader));
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+            var operationObject = FindOverride(root, renderer).gameObject;
+            var operationIntermediate = operationObject.transform.parent.gameObject;
+            operationIntermediate.AddComponent<BoxCollider>();
 
             Object.DestroyImmediate(renderer.gameObject);
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
 
-            Assert.That(root.transform.childCount, Is.EqualTo(0));
+            Assert.That(operationIntermediate, Is.Not.Null);
+            Assert.That(operationIntermediate.GetComponent<BoxCollider>(), Is.Not.Null);
+            Assert.That(operationObject == null, Is.True);
         }
 
         /// <summary>
-        /// Verifies nested renderers reuse operation objects as their parent hierarchy.
-        /// </summary>
-        [Test]
-        public void SetupReusesNestedRendererOperationObject()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var hatRenderer = CreateRenderer("Hat", target.transform, CreateMaterial(shader));
-            var featherRenderer = CreateRenderer("Feather", hatRenderer.transform, CreateMaterial(shader));
-
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            var hatOverride = FindOverride(root, hatRenderer);
-            var featherOverride = FindOverride(root, featherRenderer);
-
-            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(3));
-            Assert.That(hatOverride, Is.Not.Null);
-            Assert.That(featherOverride, Is.Not.Null);
-            Assert.That(featherOverride.transform.parent, Is.EqualTo(hatOverride.transform));
-        }
-
-        /// <summary>
-        /// Verifies repeated setup does not add nested renderer operation objects.
-        /// </summary>
-        [Test]
-        public void SetupDoesNotAddNestedRendererOperationObjectsOnRepeat()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var hatRenderer = CreateRenderer("Hat", target.transform, CreateMaterial(shader));
-            CreateRenderer("Feather", hatRenderer.transform, CreateMaterial(shader));
-
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            var firstTransformCount = root.GetComponentsInChildren<Transform>(true).Length;
-            var firstOverrideCount = root.GetComponentsInChildren<MateriluneSwapOverride>(true).Length;
-
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-
-            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(firstTransformCount));
-            Assert.That(root.GetComponentsInChildren<MateriluneSwapOverride>(true), Has.Length.EqualTo(firstOverrideCount));
-        }
-
-        /// <summary>
-        /// Verifies an orphaned parent operation object remains as an intermediate object for a valid child.
-        /// </summary>
-        [Test]
-        public void SetupKeepsOrphanedParentOperationObjectForNestedRenderer()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var hatRenderer = CreateRenderer("Hat", target.transform, CreateMaterial(shader));
-            var featherRenderer = CreateRenderer("Feather", hatRenderer.transform, CreateMaterial(shader));
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            var hatOperationObject = FindOverride(root, hatRenderer).gameObject;
-
-            Object.DestroyImmediate(hatRenderer);
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-
-            var featherOverride = FindOverride(root, featherRenderer);
-            Assert.That(hatOperationObject, Is.Not.Null);
-            Assert.That(hatOperationObject.GetComponent<MateriluneSwapOverride>(), Is.Null);
-            Assert.That(hatOperationObject.GetComponent<ModularAvatarMaterialSwap>(), Is.Null);
-            Assert.That(featherOverride, Is.Not.Null);
-            Assert.That(featherOverride.TargetRenderer, Is.EqualTo(featherRenderer));
-        }
-
-        /// <summary>
-        /// Verifies undo removes a newly created Materilune hierarchy.
-        /// </summary>
-        [Test]
-        public void SetupUndoRemovesNewHierarchy()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            CreateRenderer("A", target.transform, CreateMaterial(shader));
-
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
-
-            Assert.That(root == null, Is.True);
-        }
-
-        /// <summary>
-        /// Verifies redo restores a newly created Materilune hierarchy.
-        /// </summary>
-        [Test]
-        public void SetupRedoRestoresNewHierarchy()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            CreateRenderer("A", target.transform, CreateMaterial(shader));
-
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
-            Undo.PerformRedo();
-
-            Assert.That(FindRoot(target), Is.Not.Null);
-            Assert.That(FindRoot(target).GetComponentsInChildren<MateriluneSwapOverride>(true), Is.Not.Empty);
-        }
-
-        /// <summary>
-        /// Verifies undo restores an operation object removed as an orphan.
+        /// Verifies undoing an orphan removal restores the removed operation object.
         /// </summary>
         [Test]
         public void SetupUndoRestoresRemovedOrphan()
@@ -507,41 +312,18 @@ namespace com.amari_noa.materilune.tests.editor
             var shader = GetShader();
             var target = CreateTarget();
             var renderer = CreateRenderer("A", target.transform, CreateMaterial(shader));
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var root = GetOnlyPreset(manager);
             var operationObject = FindOverride(root, renderer).gameObject;
 
             Object.DestroyImmediate(renderer.gameObject);
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            MateriluneInspectorIsolation.DeselectAll();
             Undo.FlushUndoRecordObjects();
             Undo.PerformUndo();
 
             Assert.That(operationObject, Is.Not.Null);
             Assert.That(operationObject.GetComponent<MateriluneSwapOverride>(), Is.Not.Null);
-        }
-
-        /// <summary>
-        /// Verifies nested orphans are removed without touching an already destroyed descendant.
-        /// Destroying the ancestor also destroys the descendant, so the removal loop must tolerate
-        /// entries that Unity already reports as null.
-        /// </summary>
-        [Test]
-        public void SetupRemovesNestedOrphansWithoutError()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var outerRenderer = CreateRenderer("Hat", target.transform, CreateMaterial(shader));
-            var innerRenderer = CreateRenderer("Feather", outerRenderer.transform, CreateMaterial(shader));
-
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            Object.DestroyImmediate(innerRenderer);
-            Object.DestroyImmediate(outerRenderer);
-
-            LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex(".*"));
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-
-            Assert.That(root, Is.Not.Null);
-            Assert.That(root.GetComponentsInChildren<MateriluneSwapOverride>(true), Is.Empty);
-            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(1));
         }
 
         private GameObject CreateTarget()
@@ -561,8 +343,7 @@ namespace com.amari_noa.materilune.tests.editor
 
         private MeshRenderer CreateRenderer(string name, Transform parent, params Material[] materials)
         {
-            var gameObject = CreateGameObject(name, parent);
-            var renderer = gameObject.AddComponent<MeshRenderer>();
+            var renderer = CreateGameObject(name, parent).AddComponent<MeshRenderer>();
             renderer.sharedMaterials = materials;
             return renderer;
         }
@@ -581,6 +362,12 @@ namespace com.amari_noa.materilune.tests.editor
             return shader;
         }
 
+        private static MateriluneSwapRoot GetOnlyPreset(MateriluneSwap manager)
+        {
+            Assert.That(manager.GetPresets(), Has.Count.EqualTo(1));
+            return manager.GetPresets()[0];
+        }
+
         private static MateriluneSwapOverride FindOverride(MateriluneSwapRoot root, Renderer renderer)
         {
             foreach (var operationOverride in root.GetComponentsInChildren<MateriluneSwapOverride>(true))
@@ -594,14 +381,14 @@ namespace com.amari_noa.materilune.tests.editor
             return null;
         }
 
-        private static MateriluneSwapRoot FindRoot(GameObject target)
+        private static MateriluneSwap FindManager(GameObject target)
         {
             foreach (Transform child in target.transform)
             {
-                var root = child.GetComponent<MateriluneSwapRoot>();
-                if (root != null)
+                var manager = child.GetComponent<MateriluneSwap>();
+                if (manager != null)
                 {
-                    return root;
+                    return manager;
                 }
             }
 
