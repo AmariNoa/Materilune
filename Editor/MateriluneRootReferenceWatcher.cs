@@ -70,7 +70,9 @@ namespace com.amari_noa.materilune.editor
                     continue;
                 }
 
-                Undo.RecordObject(materialSwap, "Repair Materilune Root Reference");
+                Undo.RecordObject(
+                    materialSwap,
+                    MateriluneL10n.Get("materilune.undo.repair_reference", "Repair Materilune Root Reference"));
                 var rootReference = materialSwap.Root;
                 if (rootReference == null)
                 {
