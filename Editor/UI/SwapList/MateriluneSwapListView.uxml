@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement class="materilune-swap-list">
+        <ui:VisualElement name="entries" />
+        <ui:VisualElement class="materilune-swap-list__footer">
+            <ui:Button name="add-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

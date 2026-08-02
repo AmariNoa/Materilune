@@ -1,0 +1,381 @@
+using System;
+using System.Collections.Generic;
+using com.amari_noa.materilune.runtime;
+using UnityEditor;
+using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace com.amari_noa.materilune.editor
+{
+    /// <summary>
+    /// Provides a single material replacement entry editor.
+    /// </summary>
+    public class MateriluneSwapEntryView : VisualElement
+    {
+        private const string UxmlPath = "Packages/com.amari-noa.materilune/Editor/UI/SwapEntry/MateriluneSwapEntryView.uxml";
+        private const string UssPath = "Packages/com.amari-noa.materilune/Editor/UI/SwapEntry/MateriluneSwapEntryView.uss";
+
+        private ObjectField m_fromField;
+        private Button m_fromPicker;
+        private ObjectField m_toField;
+        private Button m_toPrevious;
+        private Button m_toNext;
+        private SerializedProperty m_swapEntryProperty;
+        private IReadOnlyList<Material> m_fromCandidates;
+        private MateriluneCandidateMode m_candidateMode;
+        private bool m_isBound;
+
+        /// <summary>
+        /// Creates the UXML factory for this element.
+        /// </summary>
+        public new class UxmlFactory : UxmlFactory<MateriluneSwapEntryView>
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MateriluneSwapEntryView"/> class.
+        /// </summary>
+        public MateriluneSwapEntryView()
+        {
+            var visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
+            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
+            if (visualTree == null || styleSheet == null)
+            {
+                Debug.LogError(MateriluneL10n.Get(
+                    "materilune.ui.swap_entry.load_error",
+                    "Materilune could not load the material swap entry UI assets."));
+                return;
+            }
+
+            visualTree.CloneTree(this);
+            styleSheets.Add(styleSheet);
+
+            m_fromField = this.Q<ObjectField>("from-field");
+            m_fromPicker = this.Q<Button>("from-picker");
+            m_toField = this.Q<ObjectField>("to-field");
+            m_toPrevious = this.Q<Button>("to-previous");
+            m_toNext = this.Q<Button>("to-next");
+            if (m_fromField == null || m_fromPicker == null || m_toField == null || m_toPrevious == null || m_toNext == null)
+            {
+                Debug.LogError(MateriluneL10n.Get(
+                    "materilune.ui.swap_entry.missing_element_error",
+                    "Materilune material swap entry UI is missing a required element."));
+                Clear();
+                return;
+            }
+
+            ConfigureFields();
+            ConfigureButtons();
+            SetControlsEnabled(false);
+
+            // Tooltips are language dependent; refresh them while attached to a panel so a
+            // language switch does not require recreating the element.
+            RegisterCallback<AttachToPanelEvent>(_ => MateriluneL10n.AddLanguageChangedListener(OnLanguageChanged));
+            RegisterCallback<DetachFromPanelEvent>(_ => MateriluneL10n.RemoveLanguageChangedListener(OnLanguageChanged));
+        }
+
+        private void OnLanguageChanged(string languageCode)
+        {
+            if (!HasControls())
+            {
+                return;
+            }
+
+            ApplyLocalizedTexts();
+        }
+
+        /// <summary>
+        /// Occurs after an entry value has been changed and applied.
+        /// </summary>
+        public event Action Changed;
+
+        /// <summary>
+        /// Binds this view to a material replacement entry.
+        /// </summary>
+        /// <param name="swapEntryProperty">The material replacement entry property.</param>
+        /// <param name="fromCandidates">Materials that can be selected as the replacement source.</param>
+        /// <param name="candidateMode">The mode used to discover replacement candidates.</param>
+        public void Bind(
+            SerializedProperty swapEntryProperty,
+            IReadOnlyList<Material> fromCandidates,
+            MateriluneCandidateMode candidateMode)
+        {
+            Unbind();
+            if (!HasControls() || swapEntryProperty == null)
+            {
+                return;
+            }
+
+            m_swapEntryProperty = swapEntryProperty;
+            m_fromCandidates = fromCandidates;
+            m_candidateMode = candidateMode;
+
+            var fromProperty = m_swapEntryProperty.FindPropertyRelative("m_from");
+            var toProperty = m_swapEntryProperty.FindPropertyRelative("m_to");
+            if (fromProperty == null || toProperty == null)
+            {
+                Unbind();
+                return;
+            }
+
+            m_fromField.BindProperty(fromProperty);
+            m_toField.BindProperty(toProperty);
+
+            // Serialized bindings only refresh once the element is attached to a panel, so
+            // mirror the current values immediately for hosts that read them synchronously.
+            m_fromField.SetValueWithoutNotify(fromProperty.objectReferenceValue);
+            m_toField.SetValueWithoutNotify(toProperty.objectReferenceValue);
+            m_fromField.RegisterValueChangedCallback(OnFieldValueChanged);
+            m_toField.RegisterValueChangedCallback(OnFieldValueChanged);
+            m_isBound = true;
+            UpdateControlState();
+        }
+
+        /// <summary>
+        /// Removes the current property binding and associated state.
+        /// </summary>
+        public void Unbind()
+        {
+            if (!HasControls())
+            {
+                return;
+            }
+
+            if (m_isBound)
+            {
+                m_fromField.UnregisterValueChangedCallback(OnFieldValueChanged);
+                m_toField.UnregisterValueChangedCallback(OnFieldValueChanged);
+                m_fromField.Unbind();
+                m_toField.Unbind();
+            }
+
+            m_swapEntryProperty = null;
+            m_fromCandidates = null;
+            m_candidateMode = MateriluneCandidateMode.None;
+            m_isBound = false;
+            SetControlsEnabled(false);
+        }
+
+        /// <summary>
+        /// Applies a source material selected from the source candidate menu.
+        /// </summary>
+        /// <param name="material">The selected source material.</param>
+        internal void ApplyFromCandidate(Material material)
+        {
+            if (!CanEdit() || material == null)
+            {
+                return;
+            }
+
+            var serializedObject = m_swapEntryProperty.serializedObject;
+            serializedObject.Update();
+            var fromProperty = m_swapEntryProperty.FindPropertyRelative("m_from");
+            var toProperty = m_swapEntryProperty.FindPropertyRelative("m_to");
+            if (fromProperty == null || toProperty == null)
+            {
+                return;
+            }
+
+            fromProperty.objectReferenceValue = material;
+            if (toProperty.objectReferenceValue == null)
+            {
+                toProperty.objectReferenceValue = material;
+            }
+
+            ApplyChanges(serializedObject);
+        }
+
+        /// <summary>
+        /// Selects the preceding or following replacement candidate.
+        /// </summary>
+        /// <param name="direction">A negative value selects the preceding candidate; a positive value selects the following candidate.</param>
+        internal void StepToCandidate(int direction)
+        {
+            if (!CanEdit() || direction == 0 || m_candidateMode == MateriluneCandidateMode.None)
+            {
+                return;
+            }
+
+            var serializedObject = m_swapEntryProperty.serializedObject;
+            serializedObject.Update();
+            var fromProperty = m_swapEntryProperty.FindPropertyRelative("m_from");
+            var toProperty = m_swapEntryProperty.FindPropertyRelative("m_to");
+            if (fromProperty == null || toProperty == null)
+            {
+                return;
+            }
+
+            var current = toProperty.objectReferenceValue as Material ?? fromProperty.objectReferenceValue as Material;
+            var candidates = MateriluneMaterialCandidates.GetCandidates(current, m_candidateMode);
+            if (candidates.Count < 2)
+            {
+                UpdateControlState();
+                return;
+            }
+
+            var currentIndex = candidates.IndexOf(current);
+            if (currentIndex < 0)
+            {
+                UpdateControlState();
+                return;
+            }
+
+            var offset = direction < 0 ? -1 : 1;
+            var nextIndex = (currentIndex + offset + candidates.Count) % candidates.Count;
+            toProperty.objectReferenceValue = candidates[nextIndex];
+            ApplyChanges(serializedObject);
+        }
+
+        private void ConfigureFields()
+        {
+            m_fromField.objectType = typeof(Material);
+            m_fromField.allowSceneObjects = false;
+            m_fromField.label = string.Empty;
+
+            m_toField.objectType = typeof(Material);
+            m_toField.allowSceneObjects = false;
+            m_toField.label = string.Empty;
+
+            ApplyLocalizedTexts();
+        }
+
+        private void ConfigureButtons()
+        {
+            // Plain glyphs rather than built-in icon USS variables, whose names are not a stable
+            // contract across Unity versions.
+            m_fromPicker.text = "+";
+            m_toPrevious.text = "<";
+            m_toNext.text = ">";
+            m_fromPicker.clicked += ShowFromCandidates;
+            m_toPrevious.clicked += () => StepToCandidate(-1);
+            m_toNext.clicked += () => StepToCandidate(1);
+        }
+
+        private void ApplyLocalizedTexts()
+        {
+            m_fromField.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.from_tooltip", "Material to replace");
+            m_toField.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.to_tooltip", "Replacement material");
+            m_fromPicker.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.pick_from_tooltip", "Choose from materials in use");
+            m_toPrevious.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.previous_tooltip", "Previous candidate");
+            m_toNext.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.next_tooltip", "Next candidate");
+        }
+
+        private void ShowFromCandidates()
+        {
+            if (!CanEdit() || m_fromCandidates == null)
+            {
+                return;
+            }
+
+            var menu = new GenericDropdownMenu();
+            var seen = new HashSet<Material>();
+            var current = GetCurrentFrom();
+            foreach (var material in m_fromCandidates)
+            {
+                if (material == null || !seen.Add(material))
+                {
+                    continue;
+                }
+
+                var candidate = material;
+                menu.AddItem(candidate.name, candidate == current, () => ApplyFromCandidate(candidate));
+            }
+
+            menu.DropDown(m_fromPicker.worldBound, m_fromPicker);
+        }
+
+        private void OnFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)
+        {
+            UpdateControlState();
+            Changed?.Invoke();
+        }
+
+        private void ApplyChanges(SerializedObject serializedObject)
+        {
+            if (!serializedObject.ApplyModifiedProperties())
+            {
+                UpdateControlState();
+                return;
+            }
+
+            UpdateControlState();
+            Changed?.Invoke();
+        }
+
+        private void UpdateControlState()
+        {
+            if (!CanEdit())
+            {
+                SetControlsEnabled(false);
+                return;
+            }
+
+            m_fromField.SetEnabled(true);
+            m_toField.SetEnabled(true);
+            m_fromPicker.SetEnabled(m_fromCandidates != null);
+
+            var current = GetCurrentTo() ?? GetCurrentFrom();
+            var canStep = m_candidateMode != MateriluneCandidateMode.None
+                && MateriluneMaterialCandidates.GetCandidates(current, m_candidateMode).Count >= 2;
+            m_toPrevious.SetEnabled(canStep);
+            m_toNext.SetEnabled(canStep);
+        }
+
+        private void SetControlsEnabled(bool enabled)
+        {
+            if (!HasControls())
+            {
+                return;
+            }
+
+            m_fromField.SetEnabled(enabled);
+            m_toField.SetEnabled(enabled);
+            m_fromPicker.SetEnabled(enabled);
+            m_toPrevious.SetEnabled(enabled);
+            m_toNext.SetEnabled(enabled);
+        }
+
+        private Material GetCurrentFrom()
+        {
+            return GetCurrentMaterial("m_from");
+        }
+
+        private Material GetCurrentTo()
+        {
+            return GetCurrentMaterial("m_to");
+        }
+
+        private Material GetCurrentMaterial(string relativePath)
+        {
+            if (!CanEdit())
+            {
+                return null;
+            }
+
+            m_swapEntryProperty.serializedObject.Update();
+            var property = m_swapEntryProperty.FindPropertyRelative(relativePath);
+            return property == null ? null : property.objectReferenceValue as Material;
+        }
+
+        private bool CanEdit()
+        {
+            // targetObject reports null once the bound component is destroyed; touching the
+            // SerializedObject after that would throw from Update().
+            return HasControls()
+                && m_isBound
+                && m_swapEntryProperty != null
+                && m_swapEntryProperty.serializedObject != null
+                && m_swapEntryProperty.serializedObject.targetObject != null;
+        }
+
+        private bool HasControls()
+        {
+            return m_fromField != null
+                && m_fromPicker != null
+                && m_toField != null
+                && m_toPrevious != null
+                && m_toNext != null;
+        }
+    }
+}

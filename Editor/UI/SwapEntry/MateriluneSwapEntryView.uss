@@ -1,0 +1,23 @@
+.materilune-swap-entry {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 1px;
+    margin-bottom: 1px;
+}
+
+.materilune-swap-entry > .unity-object-field {
+    flex-grow: 1;
+    flex-basis: 0;
+    margin-left: 1px;
+    margin-right: 1px;
+}
+
+.materilune-swap-entry > .unity-button {
+    width: 20px;
+    min-width: 20px;
+    margin-left: 1px;
+    margin-right: 1px;
+    padding-left: 0;
+    padding-right: 0;
+}
+

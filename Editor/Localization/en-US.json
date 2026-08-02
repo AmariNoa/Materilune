@@ -25,6 +25,34 @@
       "swap_from": "From",
       "swap_to": "To"
     },
+    "ui": {
+      "swap_entry": {
+        "from_tooltip": "Material to replace",
+        "to_tooltip": "Replacement material",
+        "pick_from_tooltip": "Choose from materials in use",
+        "previous_tooltip": "Previous candidate",
+        "next_tooltip": "Next candidate",
+        "load_error": "Materilune could not load the material swap entry UI assets.",
+        "missing_element_error": "Materilune material swap entry UI is missing a required element."
+      },
+      "swap_list": {
+        "add_tooltip": "Add replacement entry",
+        "remove_tooltip": "Remove this entry",
+        "load_error": "Materilune could not load the material swap list UI assets."
+      },
+      "preset_bar": {
+        "add_tooltip": "Add preset",
+        "activate_tooltip": "Activate this preset",
+        "load_error": "Materilune could not load the preset bar UI assets."
+      },
+      "target_tree": {
+        "select_tooltip": "Select this mesh",
+        "load_error": "Materilune could not load the target tree UI assets."
+      },
+      "language_selector": {
+        "load_error": "Materilune could not load the language selector UI assets."
+      }
+    },
     "warning": {
       "managed_by_materilune": "The materials of this renderer are managed by Materilune. Edit them from the Materilune objects instead."
     },
@@ -35,6 +63,7 @@
       "setup": "Setup Materilune",
       "sync": "Sync Materilune",
       "add_preset": "Add Materilune Preset",
+      "activate_preset": "Activate Materilune Preset",
       "deactivate_preset": "Deactivate Materilune Preset",
       "repair_reference": "Repair Materilune Root Reference"
     },

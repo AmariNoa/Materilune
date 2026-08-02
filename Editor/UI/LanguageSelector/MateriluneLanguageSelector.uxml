@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement class="materilune-language-selector">
+        <ui:DropdownField name="language" class="materilune-language-selector__dropdown" />
+        <ui:Label name="note" class="materilune-language-selector__note" />
+    </ui:VisualElement>
+</ui:UXML>
