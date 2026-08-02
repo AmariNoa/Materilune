@@ -7,20 +7,17 @@
     },
     "setup": {
       "orphan": {
-        "primary_title": "Materilune セットアップ",
-        "primary_message": "一部の操作用オブジェクトに対応するメッシュがなくなりました。処理方法を選択してください。",
-        "primary_delete_all": "すべて削除",
-        "primary_editor_only_all": "すべて EditorOnly として残す",
-        "primary_select_each": "個別に選択",
-        "each_title": "Materilune セットアップ",
-        "each_message": "この操作用オブジェクトに対応するメッシュがなくなりました。",
-        "each_delete": "削除",
-        "each_editor_only": "EditorOnly として残す",
-        "each_cancel": "中止"
+        "title": "Materilune セットアップ",
+        "message": "{0} 個の操作対象に対応するメッシュがありません。Materilune の設定を除去して続行しますか？",
+        "remove": "除去",
+        "cancel": "中止"
       },
       "error": {
         "no_target": "対象オブジェクトが選択されていません。",
         "no_renderer": "対象オブジェクトの配下に Renderer が見つかりませんでした。"
+      },
+      "watcher": {
+        "repaired": "Materilune はマテリアル差し替えの参照を {0} 件修復しました。"
       }
     },
     "inspector": {
