@@ -12,6 +12,7 @@ namespace com.amari_noa.materilune.runtime
         [SerializeField] private GameObject m_setupTarget;
         [SerializeField] private List<Material> m_availableMaterials = new List<Material>();
         [SerializeField] private List<MateriluneMaterialSwapEntry> m_swaps = new List<MateriluneMaterialSwapEntry>();
+        [SerializeField] private MateriluneCandidateMode m_candidateMode;
 
         /// <summary>
         /// Gets or sets the object that this component configures.
@@ -52,6 +53,15 @@ namespace com.amari_noa.materilune.runtime
 
                 return m_swaps;
             }
+        }
+
+        /// <summary>
+        /// Gets or sets the mode used to find material candidates.
+        /// </summary>
+        public MateriluneCandidateMode CandidateMode
+        {
+            get => m_candidateMode;
+            set => m_candidateMode = value;
         }
     }
 }
