@@ -8,7 +8,9 @@ namespace com.amari_noa.materilune.editor
     /// </summary>
     internal static class MateriluneSetupMenu
     {
-        [MenuItem("GameObject/Materilune/Setup Materilune", false, 20)]
+        // Modular Avatar assigns -1000..-997 to its GameObject items; staying within 10 of that
+        // block keeps the Materilune submenu directly below it, with no separator in between.
+        [MenuItem("GameObject/Materilune/Setup Materilune", false, -990)]
         private static void SetupMaterilune(MenuCommand command)
         {
             var target = command.context as GameObject;
