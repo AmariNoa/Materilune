@@ -163,10 +163,89 @@ namespace com.amari_noa.materilune.tests.editor
 
             var root = MateriluneSetupService.Setup(target);
             var firstCount = root.GetComponentsInChildren<MateriluneSwapOverride>(true).Length;
-            MateriluneSetupService.Setup(target);
+            var userRenderer = CreateRenderer("UserPlaced", root.transform, CreateMaterial(shader));
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
             var secondCount = root.GetComponentsInChildren<MateriluneSwapOverride>(true).Length;
 
             Assert.That(secondCount, Is.EqualTo(firstCount));
+            Assert.That(FindOverride(root, userRenderer), Is.Null);
+        }
+
+        /// <summary>
+        /// Verifies manually placed objects remain when no orphans are present.
+        /// </summary>
+        [Test]
+        public void SetupPreservesUserPlacedObjectsWithoutOrphans()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            CreateRenderer("A", target.transform, CreateMaterial(shader));
+            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var emptyObject = CreateGameObject("UserEmpty", root.transform);
+            var colliderObject = CreateGameObject("UserCollider", root.transform);
+            colliderObject.AddComponent<BoxCollider>();
+
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+
+            Assert.That(emptyObject, Is.Not.Null);
+            Assert.That(colliderObject, Is.Not.Null);
+            Assert.That(colliderObject.GetComponent<BoxCollider>(), Is.Not.Null);
+        }
+
+        /// <summary>
+        /// Verifies manually placed objects remain when an orphan is removed.
+        /// </summary>
+        [Test]
+        public void SetupPreservesUserPlacedObjectsWhenRemovingOrphan()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var renderer = CreateRenderer("A", target.transform, CreateMaterial(shader));
+            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            var emptyObject = CreateGameObject("UserEmpty", root.transform);
+            var colliderObject = CreateGameObject("UserCollider", root.transform);
+            colliderObject.AddComponent<BoxCollider>();
+
+            Object.DestroyImmediate(renderer.gameObject);
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+
+            Assert.That(FindRoot(target), Is.SameAs(root));
+            Assert.That(emptyObject, Is.Not.Null);
+            Assert.That(colliderObject, Is.Not.Null);
+            Assert.That(colliderObject.GetComponent<BoxCollider>(), Is.Not.Null);
+        }
+
+        /// <summary>
+        /// Verifies inactive renderers are included in setup.
+        /// </summary>
+        [Test]
+        public void SetupIncludesInactiveRenderers()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var renderer = CreateRenderer("Inactive", target.transform, CreateMaterial(shader));
+            renderer.gameObject.SetActive(false);
+
+            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+
+            Assert.That(FindOverride(root, renderer), Is.Not.Null);
+        }
+
+        /// <summary>
+        /// Verifies skinned mesh renderers are included in setup.
+        /// </summary>
+        [Test]
+        public void SetupIncludesSkinnedMeshRenderers()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var rendererObject = CreateGameObject("Skinned", target.transform);
+            var renderer = rendererObject.AddComponent<SkinnedMeshRenderer>();
+            renderer.sharedMaterials = new[] { CreateMaterial(shader) };
+
+            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+
+            Assert.That(FindOverride(root, renderer), Is.Not.Null);
         }
 
         /// <summary>

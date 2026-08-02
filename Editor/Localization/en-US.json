@@ -8,13 +8,16 @@
     "setup": {
       "orphan": {
         "title": "Materilune Setup",
-        "message": "{0} operation object(s) no longer have a corresponding mesh. They will be removed. Continue?",
+        "message": "{0} operation target(s) no longer have a corresponding mesh. Their Materilune settings will be removed. Continue?",
         "remove": "Remove",
         "cancel": "Cancel"
       },
       "error": {
         "no_target": "No target object is selected.",
         "no_renderer": "No renderer was found under the target object."
+      },
+      "watcher": {
+        "repaired": "Materilune repaired {0} material swap reference(s)."
       }
     },
     "inspector": {

@@ -105,6 +105,12 @@ namespace com.amari_noa.materilune.editor
 
         private static MateriluneSwapRoot ApplySetup(SetupState setupState, MateriluneOrphanAction orphanAction)
         {
+            if (orphanAction != MateriluneOrphanAction.Remove &&
+                orphanAction != MateriluneOrphanAction.Keep)
+            {
+                throw new ArgumentOutOfRangeException(nameof(orphanAction), orphanAction, "Unknown orphan action.");
+            }
+
             Undo.IncrementCurrentGroup();
             var undoGroup = Undo.GetCurrentGroup();
             Undo.SetCurrentGroupName(UndoGroupName);
@@ -134,7 +140,7 @@ namespace com.amari_noa.materilune.editor
                 }
 
                 SetAvailableMaterials(root, setupState.Renderers, setupState.OverridesByRenderer);
-                if (orphanAction == MateriluneOrphanAction.Remove)
+                if (orphanAction == MateriluneOrphanAction.Remove && setupState.Orphans.Count > 0)
                 {
                     RemoveOrphans(root, setupState.Orphans);
                 }
@@ -371,6 +377,7 @@ namespace com.amari_noa.materilune.editor
             IEnumerable<MateriluneSwapOverride> orphans)
         {
             var orphanObjects = new HashSet<GameObject>();
+            var orphanAncestors = new HashSet<Transform>();
             var rootOverrides = new List<MateriluneSwapOverride>();
             var componentOnlyOverrides = new List<MateriluneSwapOverride>();
             var orphanSet = new HashSet<MateriluneSwapOverride>(orphans);
@@ -387,6 +394,12 @@ namespace com.amari_noa.materilune.editor
                 else
                 {
                     orphanObjects.Add(operationOverride.gameObject);
+                    for (var ancestor = operationOverride.transform.parent;
+                         ancestor != null && ancestor != root.transform;
+                         ancestor = ancestor.parent)
+                    {
+                        orphanAncestors.Add(ancestor);
+                    }
                 }
             }
 
@@ -428,7 +441,7 @@ namespace com.amari_noa.materilune.editor
                 }
             }
 
-            RemoveEmptyIntermediateObjects(root);
+            RemoveOrphanAncestors(orphanAncestors);
         }
 
         private static bool HasNonOrphanDescendant(
@@ -447,15 +460,15 @@ namespace com.amari_noa.materilune.editor
             return false;
         }
 
-        private static void RemoveEmptyIntermediateObjects(MateriluneSwapRoot root)
+        private static void RemoveOrphanAncestors(IEnumerable<Transform> ancestors)
         {
-            var transforms = new List<Transform>(root.GetComponentsInChildren<Transform>(true));
+            var transforms = new List<Transform>(ancestors);
             transforms.Sort((left, right) => GetDepth(right).CompareTo(GetDepth(left)));
             foreach (var transform in transforms)
             {
-                if (transform == root.transform ||
+                if (transform == null ||
                     transform.childCount != 0 ||
-                    transform.GetComponentsInChildren<MateriluneSwapOverride>(true).Length != 0)
+                    transform.GetComponent<MateriluneSwapOverride>() != null)
                 {
                     continue;
                 }

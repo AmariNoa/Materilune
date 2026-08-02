@@ -8,13 +8,16 @@
     "setup": {
       "orphan": {
         "title": "Materilune セットアップ",
-        "message": "{0} 個の操作用オブジェクトに対応するメッシュがありません。除去して続行しますか？",
+        "message": "{0} 個の操作対象に対応するメッシュがありません。Materilune の設定を除去して続行しますか？",
         "remove": "除去",
         "cancel": "中止"
       },
       "error": {
         "no_target": "対象オブジェクトが選択されていません。",
         "no_renderer": "対象オブジェクトの配下に Renderer が見つかりませんでした。"
+      },
+      "watcher": {
+        "repaired": "Materilune はマテリアル差し替えの参照を {0} 件修復しました。"
       }
     },
     "inspector": {
