@@ -177,8 +177,9 @@ namespace com.amari_noa.materilune.tests.editor
             var target = CreateTarget();
             CreateRenderer("Renderer", target.transform, CreateMaterial(GetShader()));
 
-            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
             MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
             Undo.FlushUndoRecordObjects();
             Undo.PerformUndo();
             Assert.That(manager == null, Is.True);
@@ -317,8 +318,9 @@ namespace com.amari_noa.materilune.tests.editor
             var operationObject = FindOverride(root, renderer).gameObject;
 
             Object.DestroyImmediate(renderer.gameObject);
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
             MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
             Undo.FlushUndoRecordObjects();
             Undo.PerformUndo();
 
