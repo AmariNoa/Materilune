@@ -145,6 +145,7 @@ namespace com.amari_noa.materilune.editor
                     RemoveOrphans(root, setupState.Orphans);
                 }
 
+                MateriluneSwapSynchronizer.Sync(root);
                 return root;
             }
             finally
