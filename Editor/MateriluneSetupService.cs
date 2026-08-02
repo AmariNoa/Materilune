@@ -247,7 +247,7 @@ namespace com.amari_noa.materilune.editor
             return Undo.AddComponent<MateriluneSwapRoot>(presetObject);
         }
 
-        private static List<Renderer> CollectTargetRenderers(GameObject target)
+        internal static List<Renderer> CollectTargetRenderers(GameObject target)
         {
             var renderers = new List<Renderer>();
             foreach (var renderer in target.GetComponentsInChildren<Renderer>(true))

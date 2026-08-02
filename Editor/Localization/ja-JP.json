@@ -25,6 +25,34 @@
       "swap_from": "変更元",
       "swap_to": "変更先"
     },
+    "ui": {
+      "swap_entry": {
+        "from_tooltip": "置換するマテリアル",
+        "to_tooltip": "置換先のマテリアル",
+        "pick_from_tooltip": "使用中のマテリアルから選択",
+        "previous_tooltip": "前の候補",
+        "next_tooltip": "次の候補",
+        "load_error": "Materilune のマテリアル置換行 UI アセットを読み込めませんでした。",
+        "missing_element_error": "Materilune のマテリアル置換行 UI に必要な要素が見つかりません。"
+      },
+      "swap_list": {
+        "add_tooltip": "置換エントリを追加",
+        "remove_tooltip": "このエントリを削除",
+        "load_error": "Materilune のマテリアル置換リスト UI アセットを読み込めませんでした。"
+      },
+      "preset_bar": {
+        "add_tooltip": "プリセットを追加",
+        "activate_tooltip": "このプリセットをアクティブ化",
+        "load_error": "Materilune のプリセットバー UI アセットを読み込めませんでした。"
+      },
+      "target_tree": {
+        "select_tooltip": "このメッシュを選択",
+        "load_error": "Materilune の対象階層ツリー UI アセットを読み込めませんでした。"
+      },
+      "language_selector": {
+        "load_error": "Materilune の言語選択 UI アセットを読み込めませんでした。"
+      }
+    },
     "warning": {
       "managed_by_materilune": "この Renderer のマテリアルは Materilune により管理されています。代わりに Materilune オブジェクトから編集してください。"
     },
@@ -35,6 +63,7 @@
       "setup": "Materilune のセットアップ",
       "sync": "Materilune の同期",
       "add_preset": "Materilune プリセットの追加",
+      "activate_preset": "Materilune プリセットのアクティブ化",
       "deactivate_preset": "Materilune プリセットの非アクティブ化",
       "repair_reference": "Materilune の Root 参照の修復"
     },
