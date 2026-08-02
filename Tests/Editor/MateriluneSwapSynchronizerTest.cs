@@ -41,28 +41,11 @@ namespace com.amari_noa.materilune.tests.editor
             m_gameObjects.Clear();
             m_materials.Clear();
             Undo.ClearAll();
+            MateriluneInspectorIsolation.RestoreSelection();
         }
 
         [Test]
-        public void SyncExpandsRootSettingsToAllOperationObjects()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var from = CreateMaterial(shader);
-            var to = CreateMaterial(shader);
-            var firstRenderer = CreateRenderer("First", target.transform, from);
-            var secondRenderer = CreateRenderer("Second", target.transform, from);
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            root.Swaps.Add(new MateriluneMaterialSwapEntry(from, to));
-
-            MateriluneSwapSynchronizer.Sync(root);
-
-            AssertSwap(FindMaterialSwap(root, firstRenderer), from, to);
-            AssertSwap(FindMaterialSwap(root, secondRenderer), from, to);
-        }
-
-        [Test]
-        public void SyncGivesOverridePrecedenceOverRootSettings()
+        public void SyncExpandsRootSettingsAndGivesOverridesPrecedence()
         {
             var shader = GetShader();
             var target = CreateTarget();
@@ -71,10 +54,9 @@ namespace com.amari_noa.materilune.tests.editor
             var overrideReplacement = CreateMaterial(shader);
             var firstRenderer = CreateRenderer("First", target.transform, from);
             var secondRenderer = CreateRenderer("Second", target.transform, from);
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
             root.Swaps.Add(new MateriluneMaterialSwapEntry(from, rootReplacement));
-            FindOverride(root, firstRenderer).Swaps.Add(
-                new MateriluneMaterialSwapEntry(from, overrideReplacement));
+            FindOverride(root, firstRenderer).Swaps.Add(new MateriluneMaterialSwapEntry(from, overrideReplacement));
 
             MateriluneSwapSynchronizer.Sync(root);
 
@@ -83,7 +65,27 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         [Test]
-        public void SyncGivesOverridePrecedenceForRendererOnSetupTarget()
+        public void SyncHandlesRendererOnSetupTargetAndIsIdempotent()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var from = CreateMaterial(shader);
+            var to = CreateMaterial(shader);
+            var renderer = target.AddComponent<MeshRenderer>();
+            renderer.sharedMaterials = new[] { from };
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+            root.Swaps.Add(new MateriluneMaterialSwapEntry(from, to));
+
+            var firstChanged = MateriluneSwapSynchronizer.Sync(root);
+            var secondChanged = MateriluneSwapSynchronizer.Sync(root);
+
+            Assert.That(FindOverride(root, renderer).gameObject, Is.EqualTo(root.gameObject));
+            Assert.That(firstChanged, Is.GreaterThanOrEqualTo(1));
+            Assert.That(secondChanged, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SyncUsesOverrideForRendererOnSetupTarget()
         {
             var shader = GetShader();
             var target = CreateTarget();
@@ -92,33 +94,14 @@ namespace com.amari_noa.materilune.tests.editor
             var overrideReplacement = CreateMaterial(shader);
             var renderer = target.AddComponent<MeshRenderer>();
             renderer.sharedMaterials = new[] { from };
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            var operationOverride = FindOverride(root, renderer);
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
             root.Swaps.Add(new MateriluneMaterialSwapEntry(from, rootReplacement));
-            operationOverride.Swaps.Add(new MateriluneMaterialSwapEntry(from, overrideReplacement));
+            root.GetComponent<MateriluneSwapOverride>().Swaps.Add(
+                new MateriluneMaterialSwapEntry(from, overrideReplacement));
 
             MateriluneSwapSynchronizer.Sync(root);
 
-            Assert.That(operationOverride.gameObject, Is.EqualTo(root.gameObject));
             AssertSwap(root.GetComponent<ModularAvatarMaterialSwap>(), from, overrideReplacement);
-        }
-
-        [Test]
-        public void SyncDoesNotChangeAlreadySynchronizedSwaps()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var from = CreateMaterial(shader);
-            var to = CreateMaterial(shader);
-            CreateRenderer("Renderer", target.transform, from);
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            root.Swaps.Add(new MateriluneMaterialSwapEntry(from, to));
-
-            var firstChangedCount = MateriluneSwapSynchronizer.Sync(root);
-            var secondChangedCount = MateriluneSwapSynchronizer.Sync(root);
-
-            Assert.That(firstChangedCount, Is.GreaterThanOrEqualTo(1));
-            Assert.That(secondChangedCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -129,11 +112,12 @@ namespace com.amari_noa.materilune.tests.editor
             var from = CreateMaterial(shader);
             var to = CreateMaterial(shader);
             var renderer = CreateRenderer("Renderer", target.transform, from);
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
             Undo.ClearAll();
             root.Swaps.Add(new MateriluneMaterialSwapEntry(from, to));
 
             MateriluneSwapSynchronizer.Sync(root);
+            MateriluneInspectorIsolation.DeselectAll();
             Undo.FlushUndoRecordObjects();
             Undo.PerformUndo();
 
@@ -141,43 +125,54 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         [Test]
-        public void SyncAppliesOverrideSettingsWithoutRootSettings()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var from = CreateMaterial(shader);
-            var to = CreateMaterial(shader);
-            var firstRenderer = CreateRenderer("First", target.transform, from);
-            var secondRenderer = CreateRenderer("Second", target.transform, from);
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            FindOverride(root, firstRenderer).Swaps.Add(new MateriluneMaterialSwapEntry(from, to));
-
-            MateriluneSwapSynchronizer.Sync(root);
-
-            AssertSwap(FindMaterialSwap(root, firstRenderer), from, to);
-            Assert.That(FindMaterialSwap(root, secondRenderer).Swaps, Is.Empty);
-        }
-
-        [Test]
-        public void SyncThrowsForNullRoot()
-        {
-            Assert.Throws<ArgumentNullException>(() => MateriluneSwapSynchronizer.Sync(null));
-        }
-
-        [Test]
-        public void SetupSynchronizesRootSettings()
+        public void SyncManagerUpdatesInactivePresets()
         {
             var shader = GetShader();
             var target = CreateTarget();
             var from = CreateMaterial(shader);
             var to = CreateMaterial(shader);
             var renderer = CreateRenderer("Renderer", target.transform, from);
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            root.Swaps.Add(new MateriluneMaterialSwapEntry(from, to));
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var inactiveRoot = MateriluneSetupService.AddPreset(manager);
+            inactiveRoot.Swaps.Add(new MateriluneMaterialSwapEntry(from, to));
 
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var changed = MateriluneSwapSynchronizer.Sync(manager);
 
-            AssertSwap(FindMaterialSwap(root, renderer), from, to);
+            Assert.That(inactiveRoot.gameObject.activeSelf, Is.False);
+            Assert.That(changed, Is.GreaterThanOrEqualTo(1));
+            AssertSwap(FindMaterialSwap(inactiveRoot, renderer), from, to);
+        }
+
+        [Test]
+        public void SyncManagerCanBeUndoneInOneStep()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var from = CreateMaterial(shader);
+            var firstReplacement = CreateMaterial(shader);
+            var secondReplacement = CreateMaterial(shader);
+            var renderer = CreateRenderer("Renderer", target.transform, from);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var firstRoot = GetOnlyPreset(manager);
+            var secondRoot = MateriluneSetupService.AddPreset(manager);
+            Undo.ClearAll();
+            firstRoot.Swaps.Add(new MateriluneMaterialSwapEntry(from, firstReplacement));
+            secondRoot.Swaps.Add(new MateriluneMaterialSwapEntry(from, secondReplacement));
+
+            MateriluneSwapSynchronizer.Sync(manager);
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.FlushUndoRecordObjects();
+            Undo.PerformUndo();
+
+            Assert.That(FindMaterialSwap(firstRoot, renderer).Swaps, Is.Empty);
+            Assert.That(FindMaterialSwap(secondRoot, renderer).Swaps, Is.Empty);
+        }
+
+        [Test]
+        public void SyncThrowsForNullArguments()
+        {
+            Assert.Throws<ArgumentNullException>(() => MateriluneSwapSynchronizer.Sync((MateriluneSwapRoot)null));
+            Assert.Throws<ArgumentNullException>(() => MateriluneSwapSynchronizer.Sync((MateriluneSwap)null));
         }
 
         private GameObject CreateTarget()
@@ -197,8 +192,7 @@ namespace com.amari_noa.materilune.tests.editor
 
         private MeshRenderer CreateRenderer(string name, Transform parent, params Material[] materials)
         {
-            var gameObject = CreateGameObject(name, parent);
-            var renderer = gameObject.AddComponent<MeshRenderer>();
+            var renderer = CreateGameObject(name, parent).AddComponent<MeshRenderer>();
             renderer.sharedMaterials = materials;
             return renderer;
         }
@@ -215,6 +209,12 @@ namespace com.amari_noa.materilune.tests.editor
             var shader = Shader.Find("Unlit/Color");
             Assert.That(shader, Is.Not.Null);
             return shader;
+        }
+
+        private static MateriluneSwapRoot GetOnlyPreset(MateriluneSwap manager)
+        {
+            Assert.That(manager.GetPresets(), Has.Count.EqualTo(1));
+            return manager.GetPresets()[0];
         }
 
         private static MateriluneSwapOverride FindOverride(MateriluneSwapRoot root, Renderer renderer)

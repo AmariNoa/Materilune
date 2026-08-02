@@ -15,9 +15,6 @@
       "error": {
         "no_target": "対象オブジェクトが選択されていません。",
         "no_renderer": "対象オブジェクトの配下に Renderer が見つかりませんでした。"
-      },
-      "watcher": {
-        "repaired": "Materilune はマテリアル差し替えの参照を {0} 件修復しました。"
       }
     },
     "inspector": {
@@ -30,6 +27,19 @@
     },
     "warning": {
       "managed_by_materilune": "この Renderer のマテリアルは Materilune により管理されています。代わりに Materilune オブジェクトから編集してください。"
+    },
+    "preset": {
+      "deactivated": "Materilune は単一のアクティブなプリセットを維持するため、{0} 件のプリセットを非アクティブにしました。"
+    },
+    "undo": {
+      "setup": "Materilune のセットアップ",
+      "sync": "Materilune の同期",
+      "add_preset": "Materilune プリセットの追加",
+      "deactivate_preset": "Materilune プリセットの非アクティブ化",
+      "repair_reference": "Materilune の Root 参照の修復"
+    },
+    "watcher": {
+      "repaired": "Materilune はマテリアル差し替えの参照を {0} 件修復しました。"
     }
   }
 }

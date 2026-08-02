@@ -53,7 +53,7 @@ namespace com.amari_noa.materilune.tests.editor
             var renderer = rendererObject.AddComponent<MeshRenderer>();
             renderer.sharedMaterials = new[] { CreateMaterial(shader) };
 
-            var root = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
             var avatar = CreateGameObject("Avatar", null);
             avatar.AddComponent<NDMFAvatarRoot>();
             target.transform.SetParent(avatar.transform, false);
@@ -62,7 +62,7 @@ namespace com.amari_noa.materilune.tests.editor
             var repairedCount = MateriluneRootReferenceWatcher.RepairBrokenReferences();
 
             Assert.That(repairedCount, Is.EqualTo(1));
-            foreach (var operationOverride in root.GetComponentsInChildren<MateriluneSwapOverride>(true))
+            foreach (var operationOverride in manager.GetComponentsInChildren<MateriluneSwapOverride>(true))
             {
                 var materialSwap = operationOverride.GetComponent<ModularAvatarMaterialSwap>();
                 Assert.That(materialSwap.Root.Get(materialSwap), Is.EqualTo(operationOverride.TargetRenderer.gameObject));
