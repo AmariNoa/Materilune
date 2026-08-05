@@ -45,7 +45,7 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         [Test]
-        public void SyncExpandsRootSettingsAndGivesOverridesPrecedence()
+        public void SyncCopiesEachComponentSettingsWithoutComposingThem()
         {
             var shader = GetShader();
             var target = CreateTarget();
@@ -60,8 +60,10 @@ namespace com.amari_noa.materilune.tests.editor
 
             MateriluneSwapSynchronizer.Sync(root);
 
+            AssertSwap(root.GetComponent<ModularAvatarMaterialSwap>(), from, rootReplacement);
+            Assert.That(FindIntermediate(root).GetComponent<ModularAvatarMaterialSwap>().Swaps, Is.Empty);
             AssertSwap(FindMaterialSwap(root, firstRenderer), from, overrideReplacement);
-            AssertSwap(FindMaterialSwap(root, secondRenderer), from, rootReplacement);
+            Assert.That(FindMaterialSwap(root, secondRenderer).Swaps, Is.Empty);
         }
 
         [Test]
@@ -79,7 +81,8 @@ namespace com.amari_noa.materilune.tests.editor
             var firstChanged = MateriluneSwapSynchronizer.Sync(root);
             var secondChanged = MateriluneSwapSynchronizer.Sync(root);
 
-            Assert.That(FindOverride(root, renderer).gameObject, Is.EqualTo(root.gameObject));
+            Assert.That(FindOverride(root, renderer).gameObject, Is.EqualTo(FindIntermediate(root).gameObject));
+            AssertSwap(root.GetComponent<ModularAvatarMaterialSwap>(), from, to);
             Assert.That(firstChanged, Is.GreaterThanOrEqualTo(1));
             Assert.That(secondChanged, Is.EqualTo(0));
         }
@@ -96,12 +99,13 @@ namespace com.amari_noa.materilune.tests.editor
             renderer.sharedMaterials = new[] { from };
             var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
             root.Swaps.Add(new MateriluneMaterialSwapEntry(from, rootReplacement));
-            root.GetComponent<MateriluneSwapOverride>().Swaps.Add(
+            FindIntermediate(root).Swaps.Add(
                 new MateriluneMaterialSwapEntry(from, overrideReplacement));
 
             MateriluneSwapSynchronizer.Sync(root);
 
-            AssertSwap(root.GetComponent<ModularAvatarMaterialSwap>(), from, overrideReplacement);
+            AssertSwap(root.GetComponent<ModularAvatarMaterialSwap>(), from, rootReplacement);
+            AssertSwap(FindIntermediate(root).GetComponent<ModularAvatarMaterialSwap>(), from, overrideReplacement);
         }
 
         [Test]
@@ -119,8 +123,9 @@ namespace com.amari_noa.materilune.tests.editor
             MateriluneSwapSynchronizer.Sync(root);
             MateriluneInspectorIsolation.DeselectAll();
             Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
+            MateriluneInspectorIsolation.PerformUndo();
 
+            Assert.That(root.GetComponent<ModularAvatarMaterialSwap>().Swaps, Is.Empty);
             Assert.That(FindMaterialSwap(root, renderer).Swaps, Is.Empty);
         }
 
@@ -140,7 +145,8 @@ namespace com.amari_noa.materilune.tests.editor
 
             Assert.That(inactiveRoot.gameObject.activeSelf, Is.False);
             Assert.That(changed, Is.GreaterThanOrEqualTo(1));
-            AssertSwap(FindMaterialSwap(inactiveRoot, renderer), from, to);
+            AssertSwap(inactiveRoot.GetComponent<ModularAvatarMaterialSwap>(), from, to);
+            Assert.That(FindMaterialSwap(inactiveRoot, renderer).Swaps, Is.Empty);
         }
 
         [Test]
@@ -162,8 +168,10 @@ namespace com.amari_noa.materilune.tests.editor
             MateriluneSwapSynchronizer.Sync(manager);
             MateriluneInspectorIsolation.DeselectAll();
             Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
+            MateriluneInspectorIsolation.PerformUndo();
 
+            Assert.That(firstRoot.GetComponent<ModularAvatarMaterialSwap>().Swaps, Is.Empty);
+            Assert.That(secondRoot.GetComponent<ModularAvatarMaterialSwap>().Swaps, Is.Empty);
             Assert.That(FindMaterialSwap(firstRoot, renderer).Swaps, Is.Empty);
             Assert.That(FindMaterialSwap(secondRoot, renderer).Swaps, Is.Empty);
         }
@@ -228,6 +236,24 @@ namespace com.amari_noa.materilune.tests.editor
             }
 
             return null;
+        }
+
+        private static MateriluneSwapOverride FindIntermediate(MateriluneSwapRoot root)
+        {
+            MateriluneSwapOverride result = null;
+            foreach (Transform child in root.transform)
+            {
+                var candidate = child.GetComponent<MateriluneSwapOverride>();
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                Assert.That(result, Is.Null);
+                result = candidate;
+            }
+
+            return result;
         }
 
         private static ModularAvatarMaterialSwap FindMaterialSwap(MateriluneSwapRoot root, Renderer renderer)

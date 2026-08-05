@@ -14,7 +14,7 @@ namespace com.amari_noa.materilune.editor
         private static string UndoGroupName => MateriluneL10n.Get("materilune.undo.sync", "Sync Materilune");
 
         /// <summary>
-        /// Synchronizes composed root and override settings to all operation objects.
+        /// Synchronizes root and override settings to their co-located material swap objects.
         /// </summary>
         /// <param name="root">The Materilune root containing the settings to synchronize.</param>
         /// <returns>The number of material swap components that changed.</returns>
@@ -75,9 +75,23 @@ namespace com.amari_noa.materilune.editor
         private static int SyncWithoutUndoGroup(MateriluneSwapRoot root)
         {
             var changedCount = 0;
+            var rootMaterialSwap = root.GetComponent<ModularAvatarMaterialSwap>();
+            if (rootMaterialSwap != null)
+            {
+                var rootSwaps = CreateSwaps(root.Swaps);
+                if (!HasSameSwaps(rootMaterialSwap.Swaps, rootSwaps))
+                {
+                    Undo.RecordObject(rootMaterialSwap, UndoGroupName);
+                    rootMaterialSwap.Swaps = rootSwaps;
+                    EditorUtility.SetDirty(rootMaterialSwap);
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(rootMaterialSwap);
+                    changedCount++;
+                }
+            }
+
             foreach (var operationOverride in root.GetComponentsInChildren<MateriluneSwapOverride>(true))
             {
-                if (operationOverride.TargetRenderer == null)
+                if (operationOverride == null)
                 {
                     continue;
                 }
@@ -88,16 +102,7 @@ namespace com.amari_noa.materilune.editor
                     continue;
                 }
 
-                var composedSwaps = MateriluneSwapComposer.Compose(root.Swaps, operationOverride.Swaps);
-                var swaps = new List<MatSwap>(composedSwaps.Count);
-                foreach (var composedSwap in composedSwaps)
-                {
-                    swaps.Add(new MatSwap
-                    {
-                        From = composedSwap.From,
-                        To = composedSwap.To,
-                    });
-                }
+                var swaps = CreateSwaps(operationOverride.Swaps);
 
                 if (HasSameSwaps(materialSwap.Swaps, swaps))
                 {
@@ -112,6 +117,26 @@ namespace com.amari_noa.materilune.editor
             }
 
             return changedCount;
+        }
+
+        private static List<MatSwap> CreateSwaps(IList<MateriluneMaterialSwapEntry> source)
+        {
+            var swaps = new List<MatSwap>();
+            if (source == null)
+            {
+                return swaps;
+            }
+
+            foreach (var sourceSwap in source)
+            {
+                swaps.Add(new MatSwap
+                {
+                    From = sourceSwap.From,
+                    To = sourceSwap.To,
+                });
+            }
+
+            return swaps;
         }
 
         private static bool HasSameSwaps(IList<MatSwap> current, IList<MatSwap> expected)

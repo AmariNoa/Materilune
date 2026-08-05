@@ -45,45 +45,24 @@ namespace com.amari_noa.materilune.editor
             var repairedCount = 0;
             foreach (var operationOverride in Object.FindObjectsOfType<MateriluneSwapOverride>(true))
             {
-                var targetRenderer = operationOverride.TargetRenderer;
-                if (targetRenderer == null)
+                var expected = FindExpectedRoot(operationOverride);
+                if (expected == null)
                 {
                     continue;
                 }
 
-                var materialSwap = operationOverride.GetComponent<ModularAvatarMaterialSwap>();
-                if (materialSwap == null)
+                if (RepairReference(operationOverride.GetComponent<ModularAvatarMaterialSwap>(), expected))
                 {
-                    continue;
+                    repairedCount++;
                 }
+            }
 
-                if (materialSwap.Root != null &&
-                    materialSwap.Root.Get(materialSwap) == targetRenderer.gameObject)
+            foreach (var presetRoot in Object.FindObjectsOfType<MateriluneSwapRoot>(true))
+            {
+                if (RepairReference(presetRoot.GetComponent<ModularAvatarMaterialSwap>(), presetRoot.SetupTarget))
                 {
-                    continue;
+                    repairedCount++;
                 }
-
-                // Outside an avatar hierarchy the reference cannot be resolved at all, so repairing
-                // would dirty the scene and log on every hierarchy change without ever succeeding.
-                if (nadena.dev.ndmf.runtime.RuntimeUtil.FindAvatarInParents(targetRenderer.transform) == null)
-                {
-                    continue;
-                }
-
-                Undo.RecordObject(
-                    materialSwap,
-                    MateriluneL10n.Get("materilune.undo.repair_reference", "Repair Materilune Root Reference"));
-                var rootReference = materialSwap.Root;
-                if (rootReference == null)
-                {
-                    rootReference = new AvatarObjectReference();
-                    materialSwap.Root = rootReference;
-                }
-
-                rootReference.Set(targetRenderer.gameObject);
-                EditorUtility.SetDirty(materialSwap);
-                PrefabUtility.RecordPrefabInstancePropertyModifications(materialSwap);
-                repairedCount++;
             }
 
             if (repairedCount > 0)
@@ -96,6 +75,74 @@ namespace com.amari_noa.materilune.editor
             }
 
             return repairedCount;
+        }
+
+        /// <summary>
+        /// Determines which object an override's material swap has to point at.
+        /// </summary>
+        /// <param name="operationOverride">The override to inspect.</param>
+        /// <returns>The expected root object, or <see langword="null" /> when unknown.</returns>
+        private static GameObject FindExpectedRoot(MateriluneSwapOverride operationOverride)
+        {
+            var targetRenderer = operationOverride.TargetRenderer;
+            if (targetRenderer != null)
+            {
+                return targetRenderer.gameObject;
+            }
+
+            // The intermediate override stands for the setup target itself and holds no
+            // renderer when the target has none, so the target comes from the owning preset.
+            var presetRoot = operationOverride.GetComponentInParent<MateriluneSwapRoot>(true);
+            if (presetRoot != null && presetRoot.TargetOverride == operationOverride)
+            {
+                return presetRoot.SetupTarget;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Points a material swap at the expected object when its reference does not resolve.
+        /// </summary>
+        /// <param name="materialSwap">The material swap to repair.</param>
+        /// <param name="expected">The object the swap has to point at.</param>
+        /// <returns><see langword="true" /> when a repair was made; otherwise, <see langword="false" />.</returns>
+        private static bool RepairReference(ModularAvatarMaterialSwap materialSwap, GameObject expected)
+        {
+            if (materialSwap == null || expected == null)
+            {
+                return false;
+            }
+
+            if (materialSwap.Root != null && materialSwap.Root.Get(materialSwap) == expected)
+            {
+                return false;
+            }
+
+            // The reference resolves against the avatar that holds the material swap, so both
+            // sides have to sit under the same avatar. Repairing when they do not would dirty
+            // the scene and log on every hierarchy change without the reference ever resolving.
+            var expectedAvatar = nadena.dev.ndmf.runtime.RuntimeUtil.FindAvatarInParents(expected.transform);
+            if (expectedAvatar == null ||
+                expectedAvatar != nadena.dev.ndmf.runtime.RuntimeUtil.FindAvatarInParents(materialSwap.transform))
+            {
+                return false;
+            }
+
+            Undo.RecordObject(
+                materialSwap,
+                MateriluneL10n.Get("materilune.undo.repair_reference", "Repair Materilune Root Reference"));
+            var rootReference = materialSwap.Root;
+            if (rootReference == null)
+            {
+                rootReference = new AvatarObjectReference();
+                materialSwap.Root = rootReference;
+            }
+
+            rootReference.Set(expected);
+            EditorUtility.SetDirty(materialSwap);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(materialSwap);
+            return true;
         }
     }
 }

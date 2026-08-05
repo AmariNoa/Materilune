@@ -291,9 +291,9 @@ namespace com.amari_noa.materilune.editor
 
         private static bool IsExcludedNode(Transform transform)
         {
-            return transform.GetComponent<MateriluneSwap>() != null ||
-                transform.GetComponent<MateriluneSwapRoot>() != null ||
-                transform.gameObject.tag == "EditorOnly";
+            // Shares the setup service's rule so the displayed hierarchy and the scanned meshes
+            // cannot diverge, which would show a mesh the user is unable to configure.
+            return MateriluneSetupService.IsExcludedObject(transform);
         }
 
         private void ApplySelectedRow()

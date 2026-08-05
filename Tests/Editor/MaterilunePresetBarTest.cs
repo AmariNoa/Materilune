@@ -96,7 +96,7 @@ namespace com.amari_noa.materilune.tests.editor
 
             MateriluneInspectorIsolation.DeselectAll();
             Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
+            MateriluneInspectorIsolation.PerformUndo();
 
             Assert.That(firstPreset.gameObject.activeSelf, Is.True);
             Assert.That(secondPreset.gameObject.activeSelf, Is.False);
@@ -154,7 +154,12 @@ namespace com.amari_noa.materilune.tests.editor
 
         private MateriluneSwap CreateManager()
         {
-            var managerObject = CreateGameObject("Materilune", null);
+            // Mirrors the hierarchy setup builds: target > marker > manager. AddPreset resolves
+            // the target through it, so a bare manager object is not enough.
+            var target = CreateGameObject("Target", null);
+            var markerObject = CreateGameObject("Materilune", target.transform);
+            markerObject.AddComponent<Materilune>();
+            var managerObject = CreateGameObject("Material Swap", markerObject.transform);
             return managerObject.AddComponent<MateriluneSwap>();
         }
 

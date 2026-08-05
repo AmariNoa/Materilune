@@ -167,7 +167,7 @@ namespace com.amari_noa.materilune.tests.editor
 
             MateriluneInspectorIsolation.DeselectAll();
             Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
+            MateriluneInspectorIsolation.PerformUndo();
 
             var property = GetSwapsProperty(component);
             property.serializedObject.Update();
@@ -188,11 +188,11 @@ namespace com.amari_noa.materilune.tests.editor
 
             MateriluneInspectorIsolation.DeselectAll();
             Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
+            MateriluneInspectorIsolation.PerformUndo();
 
             Assert.That(view.Q<VisualElement>("entries").childCount, Is.EqualTo(0));
 
-            Undo.PerformRedo();
+            MateriluneInspectorIsolation.PerformRedo();
 
             Assert.That(view.Q<VisualElement>("entries").childCount, Is.EqualTo(1));
             view.Unbind();

@@ -61,8 +61,10 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(firstOverride, Is.Not.Null);
             Assert.That(secondOverride, Is.Not.Null);
             Assert.That(firstOverride, Is.Not.EqualTo(secondOverride));
-            Assert.That(firstOverride.transform.parent.parent, Is.EqualTo(root.transform));
-            Assert.That(secondOverride.transform.parent, Is.EqualTo(root.transform));
+            var intermediate = FindIntermediate(root);
+            Assert.That(firstOverride.transform.parent.parent, Is.EqualTo(intermediate.transform));
+            Assert.That(secondOverride.transform.parent, Is.EqualTo(intermediate.transform));
+            Assert.That(intermediate.transform.parent, Is.EqualTo(root.transform));
         }
 
         [Test]
@@ -77,13 +79,56 @@ namespace com.amari_noa.materilune.tests.editor
 
             var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
             var root = GetOnlyPreset(manager);
+            var markerRenderer = CreateRenderer("MarkerChild", manager.transform.parent, CreateMaterial(shader));
             var userRenderer = CreateRenderer("User", manager.transform, CreateMaterial(shader));
             var originalCount = root.GetComponentsInChildren<MateriluneSwapOverride>(true).Length;
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
 
             Assert.That(FindOverride(root, excludedRenderer), Is.Null);
+            Assert.That(FindOverride(root, markerRenderer), Is.Null);
             Assert.That(FindOverride(root, userRenderer), Is.Null);
             Assert.That(root.GetComponentsInChildren<MateriluneSwapOverride>(true), Has.Length.EqualTo(originalCount));
+        }
+
+        [Test]
+        public void SetupDoesNotExcludeObjectNamedMateriluneWithoutMarkerComponent()
+        {
+            var target = CreateTarget();
+            var nameOnlyObject = CreateGameObject("Materilune", target.transform);
+            var renderer = CreateRenderer("Renderer", nameOnlyObject.transform, CreateMaterial(GetShader()));
+
+            var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
+
+            Assert.That(FindOverride(root, renderer), Is.Not.Null);
+        }
+
+        [Test]
+        public void SetupReusesExistingMarkerAndDoesNotDuplicateManager()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform, CreateMaterial(GetShader()));
+
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var marker = manager.transform.parent;
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+
+            Assert.That(target.GetComponentsInChildren<Materilune>(true), Has.Length.EqualTo(1));
+            Assert.That(target.GetComponentsInChildren<MateriluneSwap>(true), Has.Length.EqualTo(1));
+            Assert.That(manager.transform.parent, Is.SameAs(marker));
+        }
+
+        [Test]
+        public void SetupCompletesMarkerThatHasNoManager()
+        {
+            var target = CreateTarget();
+            var markerObject = CreateGameObject("CustomMarker", target.transform);
+            var marker = markerObject.AddComponent<Materilune>();
+            CreateRenderer("Renderer", target.transform, CreateMaterial(GetShader()));
+
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+
+            Assert.That(manager.transform.parent, Is.EqualTo(marker.transform));
+            Assert.That(target.GetComponentsInChildren<Materilune>(true), Has.Length.EqualTo(1));
         }
 
         [Test]
@@ -116,8 +161,12 @@ namespace com.amari_noa.materilune.tests.editor
             var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
             var operationOverride = FindOverride(root, renderer);
 
-            Assert.That(operationOverride.gameObject, Is.EqualTo(root.gameObject));
+            var intermediate = FindIntermediate(root);
+            Assert.That(operationOverride.gameObject, Is.EqualTo(intermediate.gameObject));
             Assert.That(root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>(), Is.Not.Null);
+            Assert.That(
+                root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>().Root.Get(root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>()),
+                Is.EqualTo(target));
         }
 
         [Test]
@@ -181,13 +230,37 @@ namespace com.amari_noa.materilune.tests.editor
             Undo.ClearAll();
             var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
             Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
+            MateriluneInspectorIsolation.PerformUndo();
             Assert.That(manager == null, Is.True);
 
-            Undo.PerformRedo();
+            MateriluneInspectorIsolation.PerformRedo();
             var restoredManager = FindManager(target);
             Assert.That(restoredManager, Is.Not.Null);
             Assert.That(restoredManager.GetPresets(), Has.Count.EqualTo(1));
+        }
+
+        /// <summary>
+        /// Verifies undoing an orphan removal restores the removed operation object.
+        /// </summary>
+        [Test]
+        public void SetupUndoRestoresRemovedOrphan()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var renderer = CreateRenderer("A", target.transform, CreateMaterial(shader));
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var root = GetOnlyPreset(manager);
+            var operationObject = FindOverride(root, renderer).gameObject;
+
+            Object.DestroyImmediate(renderer.gameObject);
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            Undo.FlushUndoRecordObjects();
+            MateriluneInspectorIsolation.PerformUndo();
+
+            Assert.That(operationObject, Is.Not.Null);
+            Assert.That(operationObject.GetComponent<MateriluneSwapOverride>(), Is.Not.Null);
         }
 
         [Test]
@@ -205,7 +278,8 @@ namespace com.amari_noa.materilune.tests.editor
             LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex(".*"));
             var root = GetOnlyPreset(MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep));
 
-            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(1));
+            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(2));
+            Assert.That(FindIntermediate(root), Is.Not.Null);
         }
 
         [Test]
@@ -237,7 +311,8 @@ namespace com.amari_noa.materilune.tests.editor
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
 
             Assert.That(root.GetComponent<MateriluneSwapOverride>(), Is.Null);
-            Assert.That(root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>(), Is.Null);
+            Assert.That(root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>(), Is.Not.Null);
+            Assert.That(FindIntermediate(root).TargetRenderer, Is.Null);
         }
 
         [Test]
@@ -253,11 +328,13 @@ namespace com.amari_noa.materilune.tests.editor
             replacementRenderer.sharedMaterial = CreateMaterial(GetShader());
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
 
-            Assert.That(root.GetComponents<MateriluneSwapOverride>(), Has.Length.EqualTo(1));
+            var intermediate = FindIntermediate(root);
+            Assert.That(root.GetComponents<MateriluneSwapOverride>(), Is.Empty);
+            Assert.That(intermediate, Is.Not.Null);
             Assert.That(
                 root.GetComponents<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>(),
                 Has.Length.EqualTo(1));
-            var operationOverride = root.GetComponent<MateriluneSwapOverride>();
+            var operationOverride = intermediate;
             var materialSwap = root.GetComponent<nadena.dev.modular_avatar.core.ModularAvatarMaterialSwap>();
             Assert.That(operationOverride.TargetRenderer, Is.EqualTo(replacementRenderer));
             Assert.That(materialSwap.Root.Get(materialSwap), Is.EqualTo(target));
@@ -281,7 +358,8 @@ namespace com.amari_noa.materilune.tests.editor
 
             Object.DestroyImmediate(parentRenderer.gameObject);
             MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(1));
+            Assert.That(root.GetComponentsInChildren<Transform>(true), Has.Length.EqualTo(2));
+            Assert.That(FindIntermediate(root), Is.Not.Null);
         }
 
         [Test]
@@ -302,30 +380,6 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(operationIntermediate, Is.Not.Null);
             Assert.That(operationIntermediate.GetComponent<BoxCollider>(), Is.Not.Null);
             Assert.That(operationObject == null, Is.True);
-        }
-
-        /// <summary>
-        /// Verifies undoing an orphan removal restores the removed operation object.
-        /// </summary>
-        [Test]
-        public void SetupUndoRestoresRemovedOrphan()
-        {
-            var shader = GetShader();
-            var target = CreateTarget();
-            var renderer = CreateRenderer("A", target.transform, CreateMaterial(shader));
-            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            var root = GetOnlyPreset(manager);
-            var operationObject = FindOverride(root, renderer).gameObject;
-
-            Object.DestroyImmediate(renderer.gameObject);
-            MateriluneInspectorIsolation.DeselectAll();
-            Undo.ClearAll();
-            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
-            Undo.FlushUndoRecordObjects();
-            Undo.PerformUndo();
-
-            Assert.That(operationObject, Is.Not.Null);
-            Assert.That(operationObject.GetComponent<MateriluneSwapOverride>(), Is.Not.Null);
         }
 
         private GameObject CreateTarget()
@@ -383,14 +437,40 @@ namespace com.amari_noa.materilune.tests.editor
             return null;
         }
 
+        private static MateriluneSwapOverride FindIntermediate(MateriluneSwapRoot root)
+        {
+            MateriluneSwapOverride result = null;
+            foreach (Transform child in root.transform)
+            {
+                var candidate = child.GetComponent<MateriluneSwapOverride>();
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                Assert.That(result, Is.Null);
+                result = candidate;
+            }
+
+            return result;
+        }
+
         private static MateriluneSwap FindManager(GameObject target)
         {
-            foreach (Transform child in target.transform)
+            foreach (Transform markerChild in target.transform)
             {
-                var manager = child.GetComponent<MateriluneSwap>();
-                if (manager != null)
+                if (markerChild.GetComponent<Materilune>() == null)
                 {
-                    return manager;
+                    continue;
+                }
+
+                foreach (Transform managerChild in markerChild)
+                {
+                    var manager = managerChild.GetComponent<MateriluneSwap>();
+                    if (manager != null)
+                    {
+                        return manager;
+                    }
                 }
             }
 

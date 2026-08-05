@@ -80,15 +80,22 @@ namespace com.amari_noa.materilune.editor
                 throw new ArgumentNullException(nameof(manager));
             }
 
+            // Resolve before the undo group opens: a manager outside a complete Materilune
+            // hierarchy has no target, and continuing would build the preset against nothing.
+            var target = GetTargetObject(manager);
+            if (target == null)
+            {
+                throw new ArgumentException(
+                    "The manager is not placed under a Materilune marker inside a target object.",
+                    nameof(manager));
+            }
+
             Undo.IncrementCurrentGroup();
             var undoGroup = Undo.GetCurrentGroup();
             var undoLabel = MateriluneL10n.Get("materilune.undo.add_preset", "Add Materilune Preset");
             Undo.SetCurrentGroupName(undoLabel);
             try
             {
-                var target = manager.transform.parent != null
-                    ? manager.transform.parent.gameObject
-                    : manager.gameObject;
                 var renderers = CollectTargetRenderers(target);
                 var preset = CreatePreset(manager, "Swap" + (manager.GetPresets().Count + 1));
                 var presetState = new PresetState(
@@ -131,7 +138,7 @@ namespace com.amari_noa.materilune.editor
                         rendererSet,
                         overridesByRenderer,
                         operationTransformsBySource);
-                    var orphans = FindOrphans(preset, rendererSet);
+                    var orphans = FindOrphans(target, preset, rendererSet);
                     presetStates.Add(new PresetState(
                         preset,
                         overridesByRenderer,
@@ -195,6 +202,31 @@ namespace com.amari_noa.materilune.editor
             MateriluneOrphanAction orphanAction)
         {
             var preset = presetState.Root;
+            var intermediateOverride = EnsureIntermediate(target, preset);
+
+            presetState.OverridesByRenderer.Clear();
+            presetState.OperationTransformsBySource.Clear();
+            RebuildExistingMappings(
+                target,
+                preset,
+                renderers.Count == 0 ? new HashSet<Renderer>() : new HashSet<Renderer>(renderers),
+                presetState.OverridesByRenderer,
+                presetState.OperationTransformsBySource);
+
+            var presetMaterialSwap = preset.GetComponent<ModularAvatarMaterialSwap>();
+            if (presetMaterialSwap == null)
+            {
+                presetMaterialSwap = Undo.AddComponent<ModularAvatarMaterialSwap>(preset.gameObject);
+            }
+            else
+            {
+                Undo.RecordObject(presetMaterialSwap, UndoGroupName);
+            }
+
+            SetMaterialSwapRoot(presetMaterialSwap, target);
+            EditorUtility.SetDirty(presetMaterialSwap);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(presetMaterialSwap);
+
             Undo.RecordObject(preset, UndoGroupName);
             preset.SetupTarget = target;
             EditorUtility.SetDirty(preset);
@@ -217,14 +249,102 @@ namespace com.amari_noa.materilune.editor
             }
         }
 
+        private static MateriluneSwapOverride EnsureIntermediate(
+            GameObject target,
+            MateriluneSwapRoot preset)
+        {
+            var intermediateOverride = FindIntermediateOverride(preset);
+            if (intermediateOverride == null)
+            {
+                var intermediateObject = new GameObject(target.name);
+                intermediateObject.transform.SetParent(preset.transform, false);
+                Undo.RegisterCreatedObjectUndo(intermediateObject, UndoGroupName);
+                intermediateOverride = Undo.AddComponent<MateriluneSwapOverride>(intermediateObject);
+            }
+            else
+            {
+                Undo.RecordObject(intermediateOverride, UndoGroupName);
+            }
+
+            if (preset.TargetOverride != intermediateOverride)
+            {
+                Undo.RecordObject(preset, UndoGroupName);
+                preset.TargetOverride = intermediateOverride;
+                EditorUtility.SetDirty(preset);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(preset);
+            }
+
+            intermediateOverride.TargetRenderer = target.GetComponent<Renderer>();
+            EditorUtility.SetDirty(intermediateOverride);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(intermediateOverride);
+
+            var materialSwap = intermediateOverride.GetComponent<ModularAvatarMaterialSwap>();
+            if (materialSwap == null)
+            {
+                materialSwap = Undo.AddComponent<ModularAvatarMaterialSwap>(intermediateOverride.gameObject);
+            }
+            else
+            {
+                Undo.RecordObject(materialSwap, UndoGroupName);
+            }
+
+            SetMaterialSwapRoot(materialSwap, target);
+            EditorUtility.SetDirty(materialSwap);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(materialSwap);
+            return intermediateOverride;
+        }
+
+        /// <summary>
+        /// Returns the override that stands for the setup target itself.
+        /// </summary>
+        /// <param name="preset">The preset to inspect.</param>
+        /// <returns>The stored override, or <see langword="null" /> when the preset has none.</returns>
+        private static MateriluneSwapOverride FindIntermediateOverride(MateriluneSwapRoot preset)
+        {
+            // Held by reference on the preset. Locating it by position or by the presence of a
+            // renderer cannot tell it apart from an operation object left by an older layout,
+            // and a wrong match would move a mesh's settings onto another mesh.
+            var storedOverride = preset.TargetOverride;
+            if (storedOverride == null || storedOverride.transform.parent != preset.transform)
+            {
+                return null;
+            }
+
+            return storedOverride;
+        }
+
         private static MateriluneSwap FindExistingManager(GameObject target)
+        {
+            // Every marker is inspected, not just the first one. Stopping at the first marker
+            // would miss a manager held by a later one and build a duplicate hierarchy.
+            foreach (Transform markerChild in target.transform)
+            {
+                if (markerChild.GetComponent<Materilune>() == null)
+                {
+                    continue;
+                }
+
+                foreach (Transform child in markerChild)
+                {
+                    var manager = child.GetComponent<MateriluneSwap>();
+                    if (manager != null)
+                    {
+                        return manager;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static Materilune FindExistingMarker(GameObject target)
         {
             foreach (Transform child in target.transform)
             {
-                var manager = child.GetComponent<MateriluneSwap>();
-                if (manager != null)
+                var marker = child.GetComponent<Materilune>();
+                if (marker != null)
                 {
-                    return manager;
+                    return marker;
                 }
             }
 
@@ -233,8 +353,26 @@ namespace com.amari_noa.materilune.editor
 
         private static MateriluneSwap CreateManager(GameObject target)
         {
-            var managerObject = new GameObject("Materilune");
-            managerObject.transform.SetParent(target.transform, false);
+            var marker = FindExistingMarker(target);
+            if (marker == null)
+            {
+                var markerObject = new GameObject("Materilune");
+                markerObject.transform.SetParent(target.transform, false);
+                Undo.RegisterCreatedObjectUndo(markerObject, UndoGroupName);
+                marker = Undo.AddComponent<Materilune>(markerObject);
+            }
+
+            foreach (Transform child in marker.transform)
+            {
+                var existingManager = child.GetComponent<MateriluneSwap>();
+                if (existingManager != null)
+                {
+                    return existingManager;
+                }
+            }
+
+            var managerObject = new GameObject("Material Swap");
+            managerObject.transform.SetParent(marker.transform, false);
             Undo.RegisterCreatedObjectUndo(managerObject, UndoGroupName);
             return Undo.AddComponent<MateriluneSwap>(managerObject);
         }
@@ -261,13 +399,24 @@ namespace com.amari_noa.materilune.editor
             return renderers;
         }
 
+        /// <summary>
+        /// Determines whether an object marks the start of an area excluded from the mesh scan.
+        /// </summary>
+        /// <param name="transform">The object to test.</param>
+        /// <returns><see langword="true" /> when the object and its children are excluded.</returns>
+        internal static bool IsExcludedObject(Transform transform)
+        {
+            return transform.GetComponent<Materilune>() != null ||
+                transform.GetComponent<MateriluneSwap>() != null ||
+                transform.GetComponent<MateriluneSwapRoot>() != null ||
+                transform.gameObject.tag == "EditorOnly";
+        }
+
         private static bool HasExcludedAncestor(Transform transform, Transform targetTransform)
         {
             for (var current = transform; current != null; current = current.parent)
             {
-                if (current.GetComponent<MateriluneSwap>() != null ||
-                    current.GetComponent<MateriluneSwapRoot>() != null ||
-                    current.gameObject.tag == "EditorOnly")
+                if (IsExcludedObject(current))
                 {
                     return true;
                 }
@@ -281,6 +430,28 @@ namespace com.amari_noa.materilune.editor
             return false;
         }
 
+        private static GameObject GetTargetObject(MateriluneSwap manager)
+        {
+            if (manager == null)
+            {
+                return null;
+            }
+
+            // The target is only well defined when the manager sits under a marker that in turn
+            // sits under the target. Falling back to the manager or the marker itself when the
+            // hierarchy is incomplete would point the swaps at the wrong object, and a marker
+            // nested inside another marker has no target of its own.
+            var marker = manager.transform.parent;
+            if (marker == null || marker.GetComponent<Materilune>() == null || marker.parent == null)
+            {
+                return null;
+            }
+
+            return marker.parent.GetComponent<Materilune>() != null
+                ? null
+                : marker.parent.gameObject;
+        }
+
         private static void RebuildExistingMappings(
             GameObject target,
             MateriluneSwapRoot preset,
@@ -288,8 +459,17 @@ namespace com.amari_noa.materilune.editor
             IDictionary<Renderer, MateriluneSwapOverride> overridesByRenderer,
             IDictionary<Transform, Transform> operationTransformsBySource)
         {
+            var intermediateOverride = FindIntermediateOverride(preset);
+            var operationRoot = intermediateOverride != null
+                ? intermediateOverride.transform
+                : preset.transform;
             foreach (var operationOverride in preset.GetComponentsInChildren<MateriluneSwapOverride>(true))
             {
+                if (operationOverride == null)
+                {
+                    continue;
+                }
+
                 var renderer = operationOverride.TargetRenderer;
                 if (renderer == null || !renderer.transform.IsChildOf(target.transform) || !renderers.Contains(renderer))
                 {
@@ -301,7 +481,7 @@ namespace com.amari_noa.materilune.editor
                     overridesByRenderer.Add(renderer, operationOverride);
                 }
 
-                if (operationOverride.transform == preset.transform)
+                if (intermediateOverride != null && operationOverride == intermediateOverride)
                 {
                     continue;
                 }
@@ -314,7 +494,7 @@ namespace com.amari_noa.materilune.editor
                 var operationTransform = operationOverride.transform.parent;
                 var sourceTransform = renderer.transform.parent;
                 while (operationTransform != null && sourceTransform != null &&
-                       operationTransform != preset.transform && sourceTransform != target.transform)
+                       operationTransform != operationRoot && sourceTransform != target.transform)
                 {
                     if (!operationTransformsBySource.ContainsKey(sourceTransform))
                     {
@@ -327,11 +507,20 @@ namespace com.amari_noa.materilune.editor
             }
         }
 
-        private static List<MateriluneSwapOverride> FindOrphans(MateriluneSwapRoot preset, ISet<Renderer> renderers)
+        private static List<MateriluneSwapOverride> FindOrphans(
+            GameObject target,
+            MateriluneSwapRoot preset,
+            ISet<Renderer> renderers)
         {
             var orphans = new List<MateriluneSwapOverride>();
+            var intermediateOverride = FindIntermediateOverride(preset);
             foreach (var operationOverride in preset.GetComponentsInChildren<MateriluneSwapOverride>(true))
             {
+                if (operationOverride == null || operationOverride == intermediateOverride)
+                {
+                    continue;
+                }
+
                 var renderer = operationOverride.TargetRenderer;
                 if (renderer == null || !renderers.Contains(renderer))
                 {
@@ -349,9 +538,16 @@ namespace com.amari_noa.materilune.editor
             IDictionary<Renderer, MateriluneSwapOverride> overridesByRenderer,
             IDictionary<Transform, Transform> operationTransformsBySource)
         {
+            var intermediateOverride = FindIntermediateOverride(preset);
+            var operationRoot = intermediateOverride != null
+                ? intermediateOverride.transform
+                : preset.transform;
             if (overridesByRenderer.TryGetValue(renderer, out var operationOverride))
             {
                 Undo.RecordObject(operationOverride, UndoGroupName);
+                operationOverride.TargetRenderer = renderer;
+                EditorUtility.SetDirty(operationOverride);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(operationOverride);
                 var materialSwap = operationOverride.GetComponent<ModularAvatarMaterialSwap>();
                 if (materialSwap == null)
                 {
@@ -376,7 +572,7 @@ namespace com.amari_noa.materilune.editor
             GameObject operationObject;
             if (renderer.transform == target.transform)
             {
-                operationObject = preset.gameObject;
+                operationObject = operationRoot.gameObject;
             }
             else if (operationTransformsBySource.TryGetValue(renderer.transform, out var operationTransform))
             {
@@ -387,7 +583,7 @@ namespace com.amari_noa.materilune.editor
                 var parent = ResolveOperationParent(
                     renderer.transform.parent,
                     target.transform,
-                    preset.transform,
+                    operationRoot,
                     operationTransformsBySource);
                 operationObject = new GameObject(renderer.name);
                 operationObject.transform.SetParent(parent, false);
@@ -408,6 +604,8 @@ namespace com.amari_noa.materilune.editor
             {
                 operationOverride = Undo.AddComponent<MateriluneSwapOverride>(operationObject);
                 operationOverride.TargetRenderer = renderer;
+                EditorUtility.SetDirty(operationOverride);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(operationOverride);
             }
 
             var materialSwapComponent = operationObject.GetComponent<ModularAvatarMaterialSwap>();
@@ -533,15 +731,6 @@ namespace com.amari_noa.materilune.editor
                 }
             }
 
-            if (rootOverrides.Count > 0 && preset.GetComponent<MateriluneSwapOverride>() == null)
-            {
-                var materialSwap = preset.GetComponent<ModularAvatarMaterialSwap>();
-                if (materialSwap != null)
-                {
-                    Undo.DestroyObjectImmediate(materialSwap);
-                }
-            }
-
             RemoveOrphanAncestors(orphanAncestors);
         }
 
@@ -549,7 +738,8 @@ namespace com.amari_noa.materilune.editor
         {
             foreach (var descendantOverride in operationTransform.GetComponentsInChildren<MateriluneSwapOverride>(true))
             {
-                if (descendantOverride.transform != operationTransform && !orphanSet.Contains(descendantOverride))
+                if (descendantOverride != null && descendantOverride.transform != operationTransform &&
+                    !orphanSet.Contains(descendantOverride))
                 {
                     return true;
                 }

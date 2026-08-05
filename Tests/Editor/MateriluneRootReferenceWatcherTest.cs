@@ -61,11 +61,25 @@ namespace com.amari_noa.materilune.tests.editor
             LogAssert.Expect(LogType.Log, new System.Text.RegularExpressions.Regex(".*"));
             var repairedCount = MateriluneRootReferenceWatcher.RepairBrokenReferences();
 
-            Assert.That(repairedCount, Is.EqualTo(1));
+            // One repair each for the renderer's operation object, the intermediate override
+            // and the preset object's material swap.
+            Assert.That(repairedCount, Is.EqualTo(3));
             foreach (var operationOverride in manager.GetComponentsInChildren<MateriluneSwapOverride>(true))
             {
                 var materialSwap = operationOverride.GetComponent<ModularAvatarMaterialSwap>();
-                Assert.That(materialSwap.Root.Get(materialSwap), Is.EqualTo(operationOverride.TargetRenderer.gameObject));
+
+                // The intermediate override stands for the target itself and has no renderer of
+                // its own here, so its material swap points at the target object.
+                var expectedRoot = operationOverride.TargetRenderer == null
+                    ? target
+                    : operationOverride.TargetRenderer.gameObject;
+                Assert.That(materialSwap.Root.Get(materialSwap), Is.EqualTo(expectedRoot));
+            }
+
+            foreach (var presetRoot in manager.GetPresets())
+            {
+                var presetMaterialSwap = presetRoot.GetComponent<ModularAvatarMaterialSwap>();
+                Assert.That(presetMaterialSwap.Root.Get(presetMaterialSwap), Is.EqualTo(target));
             }
         }
 
@@ -76,6 +90,24 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(shader, Is.Not.Null);
             var target = CreateGameObject("Target", null);
             target.AddComponent<NDMFAvatarRoot>();
+            var rendererObject = CreateGameObject("Renderer", target.transform);
+            var renderer = rendererObject.AddComponent<MeshRenderer>();
+            renderer.sharedMaterials = new[] { CreateMaterial(shader) };
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+
+            Assert.That(MateriluneRootReferenceWatcher.RepairBrokenReferences(), Is.EqualTo(0));
+        }
+
+        /// <summary>
+        /// Verifies a setup that sits outside any avatar is left alone, so the repair does not
+        /// dirty the scene and log on every hierarchy change without ever resolving.
+        /// </summary>
+        [Test]
+        public void RepairBrokenReferencesDoesNothingOutsideAnAvatar()
+        {
+            var shader = Shader.Find("Unlit/Color");
+            Assert.That(shader, Is.Not.Null);
+            var target = CreateGameObject("Target", null);
             var rendererObject = CreateGameObject("Renderer", target.transform);
             var renderer = rendererObject.AddComponent<MeshRenderer>();
             renderer.sharedMaterials = new[] { CreateMaterial(shader) };
