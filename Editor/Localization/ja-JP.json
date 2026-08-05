@@ -51,6 +51,18 @@
       },
       "language_selector": {
         "load_error": "Materilune の言語選択 UI アセットを読み込めませんでした。"
+      },
+      "window": {
+        "title": "Materilune",
+        "lock_tooltip": "選択が変わっても現在の対象を維持",
+        "preset_header": "プリセット",
+        "root_header": "プリセット全体の差し替え",
+        "override_header": "選択中メッシュの差し替え",
+        "tree_header": "対象メッシュ",
+        "setup_message": "このオブジェクトには Materilune がまだセットアップされていません。",
+        "setup_button": "セットアップを実行",
+        "empty_message": "Hierarchy でアバターまたは衣装のオブジェクトを選択してください。",
+        "load_error": "Materilune のウィンドウ UI アセットを読み込めませんでした。"
       }
     },
     "warning": {

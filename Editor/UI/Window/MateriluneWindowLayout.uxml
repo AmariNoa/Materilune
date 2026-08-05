@@ -1,0 +1,39 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <ui:VisualElement style="flex-grow: 1;">
+        <ui:VisualElement name="elm-header" style="flex-grow: 1; height: 40px; max-height: 40px; min-height: 40px; flex-direction: row;">
+            <ui:VisualElement style="flex-grow: 1;">
+                <uie:ObjectField label="Object Field" name="target-field" />
+            </ui:VisualElement>
+            <ui:VisualElement style="flex-grow: 1;">
+                <ui:DropdownField label="Language" name="dd-language" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="elm-main" style="flex-grow: 1; padding-top: 10px;">
+            <ui:VisualElement name="elm-model-select-tab" style="flex-grow: 1; max-height: 30px; min-height: 30px; flex-direction: row; justify-content: space-between;">
+                <ui:VisualElement style="flex-grow: 1;">
+                    <ui:Button text="Material Swap" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btn-swap" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="elm-tab-page-material-swap" style="flex-grow: 1; flex-direction: row; justify-content: space-between; min-height: 0;">
+                <ui:VisualElement style="flex-grow: 1; max-width: 20%; min-height: 0; min-width: 0;">
+                    <ui:Label tabindex="-1" text="Preset List" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                    <ui:ListView style="flex-grow: 1; min-height: 0;" />
+                </ui:VisualElement>
+                <ui:VisualElement style="flex-grow: 1; flex-direction: row; min-height: 0; min-width: 0;">
+                    <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0;">
+                        <ui:Label tabindex="-1" text="Materilune Swap Root Component" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                        <ui:ListView style="flex-grow: 1; min-height: 0;" />
+                    </ui:VisualElement>
+                    <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0;">
+                        <ui:Label tabindex="-1" text="Materilune Swap Override Components" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                        <ui:TreeView style="flex-grow: 1; min-height: 0;" />
+                    </ui:VisualElement>
+                    <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0;">
+                        <ui:Label tabindex="-1" text="Materilune Swap Override Details" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                        <ui:ListView style="flex-grow: 1; min-height: 0;" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

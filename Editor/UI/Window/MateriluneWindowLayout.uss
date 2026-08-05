@@ -1,0 +1,8 @@
+/* Styles for MateriluneWindowLayout.uxml.
+
+   The window loads this sheet by path and applies it to its root, so any selector written
+   here reaches the elements defined in that document, including the UI parts the window
+   inserts into the slots at runtime (the preset bar, the swap lists and the target tree).
+
+   Part-local styles live with each part under Editor/UI/<part>/. Override them from here
+   only where this window needs a different arrangement, so the parts stay reusable. */

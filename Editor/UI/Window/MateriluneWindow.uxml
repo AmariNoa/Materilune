@@ -1,0 +1,46 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement class="materilune-window">
+        <ui:Box class="materilune-window__toolbar">
+            <uie:ObjectField name="target-field" />
+            <ui:Toggle name="lock-toggle" />
+            <ui:VisualElement name="language-slot" />
+        </ui:Box>
+        <ui:Box name="setup-container" class="materilune-window__setup">
+            <ui:Label name="setup-message" />
+            <ui:Button name="setup-button" />
+        </ui:Box>
+        <ui:VisualElement name="content-container">
+            <ui:Box class="materilune-window__pane materilune-window__preset-pane">
+                <ui:Label name="preset-header" class="materilune-window__pane-header" />
+                <ui:Box class="materilune-window__pane-body">
+                    <ui:ScrollView name="preset-scroll">
+                        <ui:VisualElement name="preset-slot" />
+                    </ui:ScrollView>
+                </ui:Box>
+            </ui:Box>
+            <ui:Box class="materilune-window__pane materilune-window__root-pane">
+                <ui:Label name="root-header" class="materilune-window__pane-header" />
+                <ui:Box class="materilune-window__pane-body">
+                    <ui:ScrollView name="root-scroll">
+                        <ui:VisualElement name="root-slot" />
+                    </ui:ScrollView>
+                </ui:Box>
+            </ui:Box>
+            <ui:Box class="materilune-window__pane materilune-window__override-pane">
+                <ui:Label name="override-header" class="materilune-window__pane-header" />
+                <ui:Box class="materilune-window__pane-body">
+                    <ui:ScrollView name="override-scroll">
+                        <ui:VisualElement name="override-slot" />
+                    </ui:ScrollView>
+                </ui:Box>
+            </ui:Box>
+            <ui:Box class="materilune-window__pane materilune-window__tree-pane">
+                <ui:Label name="tree-header" class="materilune-window__pane-header" />
+                <ui:VisualElement class="materilune-window__pane-body">
+                    <ui:VisualElement name="tree-slot" />
+                </ui:VisualElement>
+            </ui:Box>
+        </ui:VisualElement>
+        <ui:Label name="empty-message" />
+    </ui:VisualElement>
+</ui:UXML>

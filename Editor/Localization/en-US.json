@@ -51,6 +51,18 @@
       },
       "language_selector": {
         "load_error": "Materilune could not load the language selector UI assets."
+      },
+      "window": {
+        "title": "Materilune",
+        "lock_tooltip": "Keep the current target when the selection changes",
+        "preset_header": "Presets",
+        "root_header": "Preset-wide replacements",
+        "override_header": "Selected mesh replacements",
+        "tree_header": "Target meshes",
+        "setup_message": "Materilune is not set up on this object yet.",
+        "setup_button": "Run setup",
+        "empty_message": "Select an avatar or outfit object in the hierarchy.",
+        "load_error": "Materilune could not load the window UI assets."
       }
     },
     "warning": {
