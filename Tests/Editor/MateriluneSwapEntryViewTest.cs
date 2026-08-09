@@ -19,6 +19,7 @@ namespace com.amari_noa.materilune.tests.editor
         private readonly List<GameObject> m_gameObjects = new List<GameObject>();
         private Shader m_shader;
         private string m_testDirectory;
+        private EditorWindow m_window;
 
         [SetUp]
         public void SetUp()
@@ -44,6 +45,13 @@ namespace com.amari_noa.materilune.tests.editor
             }
 
             m_gameObjects.Clear();
+            if (m_window != null)
+            {
+                m_window.Close();
+                Object.DestroyImmediate(m_window);
+                m_window = null;
+            }
+
             Undo.ClearAll();
             if (!string.IsNullOrEmpty(m_testDirectory) && AssetDatabase.IsValidFolder(m_testDirectory))
             {
@@ -77,6 +85,92 @@ namespace com.amari_noa.materilune.tests.editor
 
             Assert.That(view.Q<ObjectField>("from-field").value, Is.EqualTo(from));
             Assert.That(view.Q<ObjectField>("to-field").value, Is.EqualTo(to));
+        }
+
+        // BaseField dispatches ChangeEvent only while attached to a panel, so tests that drive a
+        // field through its value setter host the view in a throwaway window.
+        private void AttachToPanel(MateriluneSwapEntryView view)
+        {
+            m_window = ScriptableObject.CreateInstance<EditorWindow>();
+            m_window.ShowUtility();
+            m_window.rootVisualElement.Add(view);
+        }
+
+        [Test]
+        public void EditingFieldWritesValueToPropertyAndRaisesChangedOnce()
+        {
+            var from = CreateMaterial("From.mat");
+            var replacement = CreateMaterial("Replacement.mat");
+            var property = CreateSwapEntryProperty(from, null);
+            var view = new MateriluneSwapEntryView();
+            AttachToPanel(view);
+            view.Bind(property, null, MateriluneCandidateMode.None);
+            var changedCount = 0;
+            view.Changed += () => changedCount++;
+
+            view.Q<ObjectField>("to-field").value = replacement;
+
+            Assert.That(GetMaterial(property, "m_to"), Is.EqualTo(replacement));
+            Assert.That(changedCount, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// Verifies rebinding reports no change. A rebind that looked like an edit made the host
+        /// rebuild from inside its own rebuild, which overflowed the stack.
+        /// </summary>
+        [Test]
+        public void RebindingTheSameEntryRaisesNoChange()
+        {
+            var from = CreateMaterial("From.mat");
+            var to = CreateMaterial("To.mat");
+            var property = CreateSwapEntryProperty(from, to);
+            var view = new MateriluneSwapEntryView();
+            AttachToPanel(view);
+            view.Bind(property, null, MateriluneCandidateMode.None);
+            var changedCount = 0;
+            view.Changed += () => changedCount++;
+
+            view.Bind(property, null, MateriluneCandidateMode.None);
+
+            Assert.That(changedCount, Is.EqualTo(0));
+            Assert.That(view.Q<ObjectField>("from-field").value, Is.EqualTo(from));
+            Assert.That(view.Q<ObjectField>("to-field").value, Is.EqualTo(to));
+        }
+
+        /// <summary>
+        /// Verifies an edit reported to a host that rebinds the view in response settles after
+        /// one report. This is the loop that overflowed the stack: the rebind looked like a
+        /// further edit, which made the host rebind again.
+        /// </summary>
+        [Test]
+        public void RebindingFromTheChangedHandlerSettlesAfterOneReport()
+        {
+            const int RecursionLimit = 5;
+            var from = CreateMaterial("From.mat");
+            var replacement = CreateMaterial("Replacement.mat");
+            var property = CreateSwapEntryProperty(from, null);
+            var view = new MateriluneSwapEntryView();
+            AttachToPanel(view);
+            view.Bind(property, null, MateriluneCandidateMode.None);
+            var changedCount = 0;
+            view.Changed += () =>
+            {
+                changedCount++;
+
+                // Stop before the stack overflows so a regression fails the assertion below
+                // instead of taking down the test runner.
+                if (changedCount >= RecursionLimit)
+                {
+                    return;
+                }
+
+                view.Bind(property, null, MateriluneCandidateMode.None);
+            };
+
+            view.Q<ObjectField>("to-field").value = replacement;
+
+            Assert.That(changedCount, Is.EqualTo(1));
+            Assert.That(GetMaterial(property, "m_to"), Is.EqualTo(replacement));
         }
 
         [Test]

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using com.amari_noa.materilune.editor;
 using com.amari_noa.materilune.runtime;
+using nadena.dev.modular_avatar.core;
 using nadena.dev.ndmf.runtime.components;
 using NUnit.Framework;
 using UnityEditor;
@@ -16,6 +17,7 @@ namespace com.amari_noa.materilune.tests.editor
     public sealed class MateriluneWindowTest
     {
         private readonly List<GameObject> m_gameObjects = new List<GameObject>();
+        private readonly List<Material> m_materials = new List<Material>();
         private MateriluneWindow m_window;
 
         [TearDown]
@@ -35,7 +37,16 @@ namespace com.amari_noa.materilune.tests.editor
                 }
             }
 
+            foreach (var material in m_materials)
+            {
+                if (material != null)
+                {
+                    Object.DestroyImmediate(material);
+                }
+            }
+
             m_gameObjects.Clear();
+            m_materials.Clear();
             Undo.ClearAll();
             MateriluneInspectorIsolation.RestoreSelection();
         }
@@ -100,16 +111,18 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         [Test]
-        public void UnsetupTargetShowsSetupContainer()
+        public void UnsetupTargetClearsAllDataViews()
         {
             var target = CreateTarget();
             m_window = MateriluneWindow.OpenForTests();
 
             m_window.SetTargetForTests(target);
 
-            var setupContainer = m_window.rootVisualElement.Q<VisualElement>("setup-container");
-            Assert.That(setupContainer, Is.Not.Null);
-            Assert.That(setupContainer.style.display.value, Is.Not.EqualTo(DisplayStyle.None));
+            Assert.That(GetItemCount("lv-preset-list"), Is.EqualTo(0));
+            Assert.That(GetItemCount("lv-swap-root-entries"), Is.EqualTo(0));
+            Assert.That(GetItemCount("lv-swap-override-entries"), Is.EqualTo(0));
+            Assert.That(m_window.rootVisualElement.Q<TreeView>("tv-swap-override-components").GetRootIds(),
+                Is.Empty);
             Assert.That(m_window.ResolvedManager, Is.Null);
         }
 
@@ -126,15 +139,14 @@ namespace com.amari_noa.materilune.tests.editor
             m_window = MateriluneWindow.OpenForTests();
             m_window.SetTargetForTests(target);
 
-            var tree = m_window.rootVisualElement.Q<MateriluneTargetTreeView>();
+            var tree = m_window.rootVisualElement.Q<TreeView>("tv-swap-override-components");
             Assert.That(tree, Is.Not.Null);
-            tree.SelectRenderer(renderer);
-            Assert.That(tree.SelectedRenderer, Is.SameAs(renderer));
+            tree.SetSelectionById(renderer.transform.GetInstanceID());
+            Assert.That(m_window.SelectedRenderer, Is.SameAs(renderer));
 
             m_window.SetTargetForTests(target);
 
-            Assert.That(m_window.rootVisualElement.Q<MateriluneTargetTreeView>().SelectedRenderer,
-                Is.SameAs(renderer));
+            Assert.That(m_window.SelectedRenderer, Is.SameAs(renderer));
         }
 
         /// <summary>
@@ -158,8 +170,7 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         /// <summary>
-        /// Verifies activating another preset through the preset bar switches the displayed
-        /// preset, instead of keeping the previously shown one.
+        /// Verifies selecting another preset switches the displayed preset.
         /// </summary>
         [Test]
         public void ActivatingAnotherPresetSwitchesTheDisplayedPreset()
@@ -172,9 +183,9 @@ namespace com.amari_noa.materilune.tests.editor
             m_window.SetTargetForTests(target);
             Assert.That(m_window.DisplayedPreset, Is.SameAs(manager.GetPresets()[0]));
 
-            var presetBar = m_window.rootVisualElement.Q<MaterilunePresetBar>();
-            Assert.That(presetBar, Is.Not.Null);
-            presetBar.ActivatePreset(secondPreset);
+            var presetList = m_window.rootVisualElement.Q<ListView>("lv-preset-list");
+            Assert.That(presetList, Is.Not.Null);
+            presetList.SetSelection(1);
 
             Assert.That(m_window.DisplayedPreset, Is.SameAs(secondPreset));
         }
@@ -194,7 +205,8 @@ namespace com.amari_noa.materilune.tests.editor
             m_window.SetTargetForTests(target);
             m_window.SetDisplayedPresetForTests(secondPreset);
 
-            m_window.rootVisualElement.Q<MaterilunePresetBar>().AddPresetEntry();
+            MateriluneSetupService.AddPreset(manager);
+            m_window.SetTargetForTests(target);
 
             Assert.That(m_window.DisplayedPreset, Is.SameAs(secondPreset));
             Assert.That(manager.GetPresets(), Has.Count.EqualTo(3));
@@ -217,7 +229,7 @@ namespace com.amari_noa.materilune.tests.editor
             m_window.SetTargetForTests(target);
             m_window.SetDisplayedPresetForTests(secondPreset);
 
-            m_window.rootVisualElement.Q<MaterilunePresetBar>().ActivatePreset(firstPreset);
+            m_window.rootVisualElement.Q<ListView>("lv-preset-list").SetSelection(0);
 
             Assert.That(m_window.DisplayedPreset, Is.SameAs(firstPreset));
         }
@@ -242,7 +254,7 @@ namespace com.amari_noa.materilune.tests.editor
             m_window = MateriluneWindow.OpenForTests();
             m_window.SetTargetForTests(target);
 
-            m_window.rootVisualElement.Q<MaterilunePresetBar>().ActivatePreset(secondPreset);
+            m_window.rootVisualElement.Q<ListView>("lv-preset-list").SetSelection(1);
             Assert.That(m_window.DisplayedPreset, Is.SameAs(secondPreset));
 
             Undo.FlushUndoRecordObjects();
@@ -258,11 +270,10 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         /// <summary>
-        /// Verifies destroying the manager falls back to the setup prompt instead of hiding
-        /// everything while the target object is still present.
+        /// Verifies destroying the manager clears all bound data while the target object remains.
         /// </summary>
         [Test]
-        public void DestroyedManagerShowsSetupContainerAgain()
+        public void DestroyedManagerClearsAllDataViews()
         {
             var target = CreateTarget();
             CreateRenderer("Renderer", target.transform);
@@ -273,8 +284,11 @@ namespace com.amari_noa.materilune.tests.editor
             Object.DestroyImmediate(manager.gameObject);
             m_window.SetTargetForTests(target);
 
-            var setupContainer = m_window.rootVisualElement.Q<VisualElement>("setup-container");
-            Assert.That(setupContainer.style.display.value, Is.Not.EqualTo(DisplayStyle.None));
+            Assert.That(GetItemCount("lv-preset-list"), Is.EqualTo(0));
+            Assert.That(GetItemCount("lv-swap-root-entries"), Is.EqualTo(0));
+            Assert.That(GetItemCount("lv-swap-override-entries"), Is.EqualTo(0));
+            Assert.That(m_window.rootVisualElement.Q<TreeView>("tv-swap-override-components").GetRootIds(),
+                Is.Empty);
             Assert.That(m_window.ResolvedManager, Is.Null);
         }
 
@@ -296,9 +310,189 @@ namespace com.amari_noa.materilune.tests.editor
             Object.DestroyImmediate(secondPreset.gameObject);
             m_window.SetTargetForTests(target);
 
-            var contentContainer = m_window.rootVisualElement.Q<VisualElement>("content-container");
-            Assert.That(contentContainer.style.display.value, Is.Not.EqualTo(DisplayStyle.None));
+            Assert.That(GetItemCount("lv-preset-list"), Is.EqualTo(1));
+            Assert.That(GetItemCount("lv-swap-root-entries"),
+                Is.EqualTo(manager.GetPresets()[0].Swaps.Count));
             Assert.That(m_window.DisplayedPreset, Is.SameAs(manager.GetPresets()[0]));
+        }
+
+        [Test]
+        public void PresetAddButtonAddsPresetAndListItem()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+            var initialCount = manager.GetPresets().Count;
+
+            Assert.That(m_window.rootVisualElement.Q<Button>("btn-preset-add").enabledSelf, Is.True);
+            AssertButtonIsClickable("btn-preset-add");
+            m_window.AddPresetForTests();
+
+            Assert.That(manager.GetPresets(), Has.Count.EqualTo(initialCount + 1));
+            Assert.That(GetItemCount("lv-preset-list"), Is.EqualTo(initialCount + 1));
+        }
+
+        [Test]
+        public void RootEntryAddButtonAddsEmptyEntry()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var preset = manager.GetPresets()[0];
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+            var initialCount = preset.Swaps.Count;
+
+            AssertButtonIsClickable("btn-swap-root-entry-add");
+            m_window.AddRootEntryForTests();
+
+            Assert.That(preset.Swaps, Has.Count.EqualTo(initialCount + 1));
+            Assert.That(preset.Swaps[initialCount].From, Is.Null);
+            Assert.That(preset.Swaps[initialCount].To, Is.Null);
+        }
+
+        [Test]
+        public void OverrideEntryAddButtonAddsEmptyEntryForSelectedMesh()
+        {
+            var target = CreateTarget();
+            var renderer = CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var preset = manager.GetPresets()[0];
+            var operationOverride = FindOverride(preset, renderer);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+            m_window.rootVisualElement.Q<TreeView>("tv-swap-override-components")
+                .SetSelectionById(renderer.transform.GetInstanceID());
+            var initialCount = operationOverride.Swaps.Count;
+
+            AssertButtonIsClickable("btn-swap-override-entry-add");
+            m_window.AddOverrideEntryForTests();
+
+            Assert.That(operationOverride.Swaps, Has.Count.EqualTo(initialCount + 1));
+            Assert.That(operationOverride.Swaps[initialCount].From, Is.Null);
+            Assert.That(operationOverride.Swaps[initialCount].To, Is.Null);
+        }
+
+        [Test]
+        public void EntryAdditionIsRevertedByOneUndo()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var preset = manager.GetPresets()[0];
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+            var initialCount = preset.Swaps.Count;
+            Undo.ClearAll();
+
+            m_window.AddRootEntryForTests();
+            Assert.That(preset.Swaps, Has.Count.EqualTo(initialCount + 1));
+
+            Undo.FlushUndoRecordObjects();
+            MateriluneInspectorIsolation.PerformUndo();
+
+            Assert.That(preset.Swaps, Has.Count.EqualTo(initialCount));
+
+            MateriluneInspectorIsolation.PerformRedo();
+
+            Assert.That(preset.Swaps, Has.Count.EqualTo(initialCount + 1));
+        }
+
+        /// <summary>
+        /// Verifies removing an entry drops the right one, keeps the rest, and reaches the
+        /// Material Swap component, and that one undo brings it back.
+        /// </summary>
+        [Test]
+        public void RemovingAnEntryKeepsTheOthersAndSyncs()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var renderer = CreateRenderer("Renderer", target.transform);
+            var first = CreateMaterial(shader);
+            var second = CreateMaterial(shader);
+            renderer.sharedMaterials = new[] { first, second };
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var preset = manager.GetPresets()[0];
+            var firstReplacement = CreateMaterial(shader);
+            var secondReplacement = CreateMaterial(shader);
+            preset.Swaps.Add(new MateriluneMaterialSwapEntry(first, firstReplacement));
+            preset.Swaps.Add(new MateriluneMaterialSwapEntry(second, secondReplacement));
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+
+            m_window.RemoveRootEntryForTests(0);
+
+            Assert.That(preset.Swaps, Has.Count.EqualTo(1));
+            Assert.That(preset.Swaps[0].From, Is.EqualTo(second));
+            Assert.That(preset.Swaps[0].To, Is.EqualTo(secondReplacement));
+            Assert.That(GetItemCount("lv-swap-root-entries"), Is.EqualTo(1));
+
+            var presetMaterialSwap = preset.GetComponent<ModularAvatarMaterialSwap>();
+            Assert.That(presetMaterialSwap.Swaps, Has.Count.EqualTo(1));
+            Assert.That(presetMaterialSwap.Swaps[0].From, Is.EqualTo(second));
+
+            Undo.FlushUndoRecordObjects();
+            MateriluneInspectorIsolation.PerformUndo();
+
+            Assert.That(preset.Swaps, Has.Count.EqualTo(2));
+            Assert.That(GetItemCount("lv-swap-root-entries"), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void AddButtonsAreDisabledWhenManagerOrTargetIsUnresolved()
+        {
+            var target = CreateTarget();
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            Assert.That(m_window.rootVisualElement.Q<Button>("btn-preset-add").enabledSelf, Is.False);
+            Assert.That(m_window.rootVisualElement.Q<Button>("btn-swap-root-entry-add").enabledSelf, Is.False);
+            Assert.That(m_window.rootVisualElement.Q<Button>("btn-swap-override-entry-add").enabledSelf, Is.False);
+        }
+
+        [Test]
+        public void PresetRemoveButtonIsDisabledWhenOnlyOnePresetExists()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            // The list virtualizes its rows and no layout pass runs in edit mode tests, so the
+            // row is built directly instead of being searched for in the visual tree.
+            var row = m_window.BuildPresetRowForTests(0);
+            Assert.That(row, Is.Not.Null);
+            var removeButton = row.Q<Button>("btn-preset-remove");
+            Assert.That(removeButton, Is.Not.Null);
+            Assert.That(removeButton.enabledSelf, Is.False);
+        }
+
+        /// <summary>
+        /// Verifies a preset row can be removed once a second preset exists, so the rule only
+        /// blocks emptying the manager.
+        /// </summary>
+        [Test]
+        public void PresetRemoveButtonIsEnabledWithSeveralPresets()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            var row = m_window.BuildPresetRowForTests(0);
+            Assert.That(row, Is.Not.Null);
+            var removeButton = row.Q<Button>("btn-preset-remove");
+            Assert.That(removeButton, Is.Not.Null);
+            Assert.That(removeButton.enabledSelf, Is.True);
+            Assert.That(row.Q<Label>("lbl-preset-name").text,
+                Is.EqualTo(manager.GetPresets()[0].gameObject.name));
         }
 
         [Test]
@@ -328,9 +522,36 @@ namespace com.amari_noa.materilune.tests.editor
             return target;
         }
 
+        private static Shader GetShader()
+        {
+            var shader = Shader.Find("Unlit/Color");
+            Assert.That(shader, Is.Not.Null);
+            return shader;
+        }
+
+        private Material CreateMaterial(Shader shader)
+        {
+            var material = new Material(shader);
+            m_materials.Add(material);
+            return material;
+        }
+
         private MeshRenderer CreateRenderer(string name, Transform parent)
         {
             return CreateGameObject(name, parent).AddComponent<MeshRenderer>();
+        }
+
+        private static MateriluneSwapOverride FindOverride(MateriluneSwapRoot preset, Renderer renderer)
+        {
+            foreach (var operationOverride in preset.GetComponentsInChildren<MateriluneSwapOverride>(true))
+            {
+                if (operationOverride != null && operationOverride.TargetRenderer == renderer)
+                {
+                    return operationOverride;
+                }
+            }
+
+            return null;
         }
 
         private GameObject CreateGameObject(string name, Transform parent)
@@ -339,6 +560,27 @@ namespace com.amari_noa.materilune.tests.editor
             gameObject.transform.SetParent(parent, false);
             m_gameObjects.Add(gameObject);
             return gameObject;
+        }
+
+        /// <summary>
+        /// Checks that a button exists, carries a click manipulator and is usable. Sending a
+        /// synthetic click is not available on this Unity version, so tests assert the button
+        /// is ready here and then invoke the same handler it is wired to.
+        /// </summary>
+        /// <param name="buttonName">The name of the button to check.</param>
+        private void AssertButtonIsClickable(string buttonName)
+        {
+            var button = m_window.rootVisualElement.Q<Button>(buttonName);
+            Assert.That(button, Is.Not.Null, "Missing button: " + buttonName);
+            Assert.That(button.clickable, Is.Not.Null, "Button has no clickable: " + buttonName);
+            Assert.That(button.enabledSelf, Is.True, "Button is disabled: " + buttonName);
+        }
+
+        private int GetItemCount(string listName)
+        {
+            var list = m_window.rootVisualElement.Q<ListView>(listName);
+            Assert.That(list, Is.Not.Null);
+            return list.itemsSource == null ? 0 : list.itemsSource.Count;
         }
     }
 }

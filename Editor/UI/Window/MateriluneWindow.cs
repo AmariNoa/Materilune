@@ -1,3 +1,6 @@
+using System;
+using System;
+using System.Collections.Generic;
 using com.amari_noa.materilune.runtime;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -11,33 +14,46 @@ namespace com.amari_noa.materilune.editor
     /// </summary>
     public class MateriluneWindow : EditorWindow
     {
-        // Points at the current layout. Switch both paths to MateriluneWindowLayout once that
-        // document defines the elements this window looks up.
-        private const string UxmlPath = "Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindow.uxml";
-        private const string UssPath = "Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindow.uss";
+        private const string UxmlPath = "Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindowLayout.uxml";
+        private const string UssPath = "Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindowLayout.uss";
+        private const string PresetRowUxmlPath = "Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindowPresetRow.uxml";
+        private const string SwapEntryRowUxmlPath = "Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindowSwapEntryRow.uxml";
+        private const string ActivePresetClass = "materilune-window__preset--active";
+        private const float MinimumWindowWidth = 720f;
+        private const float MinimumWindowHeight = 360f;
+        private const float DefaultWindowWidth = 1000f;
+        private const float DefaultWindowHeight = 560f;
+        private const float LabelRowHeight = 20f;
+        private const float SwapRowHeight = 22f;
+
+        private readonly List<MateriluneSwapRoot> m_emptyPresets = new List<MateriluneSwapRoot>();
+        private readonly List<MateriluneMaterialSwapEntry> m_emptySwapEntries =
+            new List<MateriluneMaterialSwapEntry>();
+        private readonly List<TreeViewItemData<Transform>> m_emptyTreeItems =
+            new List<TreeViewItemData<Transform>>();
+        private readonly List<TreeViewItemData<Transform>> m_treeItems =
+            new List<TreeViewItemData<Transform>>();
+        private readonly Dictionary<VisualElement, PresetRowBinding> m_presetRowBindings =
+            new Dictionary<VisualElement, PresetRowBinding>();
+        private readonly Dictionary<VisualElement, SwapRowBinding> m_swapRowBindings =
+            new Dictionary<VisualElement, SwapRowBinding>();
 
         private ObjectField m_targetField;
-        private Toggle m_lockToggle;
-        private VisualElement m_setupContainer;
-        private Label m_setupMessage;
-        private Button m_setupButton;
-        private VisualElement m_contentContainer;
+        private DropdownField m_languageDropdown;
+        private Button m_swapButton;
+        private Button m_presetAddButton;
+        private Button m_rootEntryAddButton;
+        private Button m_overrideEntryAddButton;
+        private ListView m_presetList;
+        private ListView m_rootSwapList;
+        private TreeView m_overrideTree;
+        private ListView m_overrideSwapList;
         private Label m_presetHeader;
         private Label m_rootHeader;
         private Label m_overrideHeader;
         private Label m_treeHeader;
-        private Label m_emptyMessage;
-        private VisualElement m_languageSlot;
-        private VisualElement m_presetSlot;
-        private VisualElement m_rootSlot;
-        private VisualElement m_treeSlot;
-        private VisualElement m_overrideSlot;
-
-        private MaterilunePresetBar m_presetBar;
-        private MateriluneSwapListView m_rootSwapList;
-        private MateriluneSwapListView m_overrideSwapList;
-        private MateriluneTargetTreeView m_targetTree;
-        private MateriluneLanguageSelector m_languageSelector;
+        private VisualTreeAsset m_presetRowTemplate;
+        private VisualTreeAsset m_swapEntryRowTemplate;
 
         private MateriluneSwap m_manager;
         private MateriluneSwapRoot m_activePreset;
@@ -45,11 +61,11 @@ namespace com.amari_noa.materilune.editor
         private Renderer m_selectedRenderer;
         private SerializedObject m_rootSerializedObject;
         private SerializedObject m_overrideSerializedObject;
-        private GameObject m_currentCandidate;
-        private GameObject m_setupCandidate;
-        private bool m_isLocked;
         private bool m_uiReady;
         private bool m_isSubscribed;
+        private bool m_isRebuilding;
+        private int m_bindingDepth;
+        private bool m_isRestoringPresetSelection;
         private bool m_useTestTarget;
         private GameObject m_testTarget;
 
@@ -79,7 +95,6 @@ namespace com.amari_noa.materilune.editor
         {
             m_useTestTarget = true;
             m_testTarget = target;
-            m_currentCandidate = target;
             if (!m_uiReady)
             {
                 CreateGUI();
@@ -99,6 +114,11 @@ namespace com.amari_noa.materilune.editor
         internal MateriluneSwapRoot DisplayedPreset => m_activePreset == null ? null : m_activePreset;
 
         /// <summary>
+        /// Gets the renderer currently selected in the target tree.
+        /// </summary>
+        internal Renderer SelectedRenderer => m_selectedRenderer == null ? null : m_selectedRenderer;
+
+        /// <summary>
         /// Shows a specific preset without going through the preset bar.
         /// </summary>
         /// <param name="preset">The preset to display.</param>
@@ -106,6 +126,8 @@ namespace com.amari_noa.materilune.editor
         {
             m_activePreset = preset;
             BindRoot(preset);
+            ApplyPresetSelection();
+            UpdateAddButtonStates();
         }
 
         private static MateriluneWindow GetOrCreateWindow()
@@ -114,6 +136,18 @@ namespace com.amari_noa.materilune.editor
             window.titleContent = new GUIContent(MateriluneL10n.Get(
                 "materilune.ui.window.title",
                 "Materilune"));
+
+            // Four columns and a toolbar need room. Below the minimum the columns collapse into
+            // each other, so the window refuses to go smaller and opens wider than that.
+            window.minSize = new Vector2(MinimumWindowWidth, MinimumWindowHeight);
+            if (window.position.width < DefaultWindowWidth || window.position.height < DefaultWindowHeight)
+            {
+                var position = window.position;
+                position.width = Mathf.Max(position.width, DefaultWindowWidth);
+                position.height = Mathf.Max(position.height, DefaultWindowHeight);
+                window.position = position;
+            }
+
             window.Focus();
             return window;
         }
@@ -161,7 +195,12 @@ namespace com.amari_noa.materilune.editor
 
             var visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
             var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
-            if (visualTree == null || styleSheet == null)
+            m_presetRowTemplate = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(PresetRowUxmlPath);
+            m_swapEntryRowTemplate = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(SwapEntryRowUxmlPath);
+            if (visualTree == null
+                || styleSheet == null
+                || m_presetRowTemplate == null
+                || m_swapEntryRowTemplate == null)
             {
                 LogLoadError();
                 return;
@@ -181,31 +220,13 @@ namespace com.amari_noa.materilune.editor
             m_targetField.objectType = typeof(GameObject);
             m_targetField.allowSceneObjects = true;
             m_targetField.SetEnabled(false);
-            m_lockToggle.SetValueWithoutNotify(m_isLocked);
-
-            m_presetBar = new MaterilunePresetBar();
-            m_rootSwapList = new MateriluneSwapListView();
-            m_overrideSwapList = new MateriluneSwapListView();
-            m_targetTree = new MateriluneTargetTreeView();
-            m_languageSelector = new MateriluneLanguageSelector();
-            m_languageSlot.Add(m_languageSelector);
-            m_presetSlot.Add(m_presetBar);
-            m_rootSlot.Add(m_rootSwapList);
-            m_treeSlot.Add(m_targetTree);
-            m_overrideSlot.Add(m_overrideSwapList);
-
-            // The tree carries its own scroll view, so it has to take the pane's height instead
-            // of growing with its contents. The other parts sit inside the window's scroll views
-            // and are meant to be as tall as their contents.
-            m_targetTree.style.flexGrow = 1f;
-            m_targetTree.style.minHeight = 0f;
-
-            m_lockToggle.RegisterValueChangedCallback(OnLockChanged);
-            m_setupButton.clicked += OnSetupClicked;
-            m_presetBar.Changed += OnViewChanged;
-            m_rootSwapList.Changed += OnViewChanged;
-            m_overrideSwapList.Changed += OnViewChanged;
-            m_targetTree.RendererSelected += OnRendererSelected;
+            ConfigureListAndTreeViews();
+            m_languageDropdown.RegisterValueChangedCallback(OnLanguageValueChanged);
+            m_presetList.selectionChanged += OnPresetSelectionChanged;
+            m_overrideTree.selectionChanged += OnTreeSelectionChanged;
+            m_presetAddButton.clicked += OnPresetAddClicked;
+            m_rootEntryAddButton.clicked += OnRootEntryAddClicked;
+            m_overrideEntryAddButton.clicked += OnOverrideEntryAddClicked;
 
             m_uiReady = true;
             ApplyLocalizedTexts();
@@ -215,117 +236,102 @@ namespace com.amari_noa.materilune.editor
         private void CacheControls()
         {
             m_targetField = rootVisualElement.Q<ObjectField>("target-field");
-            m_lockToggle = rootVisualElement.Q<Toggle>("lock-toggle");
-            m_setupContainer = rootVisualElement.Q<VisualElement>("setup-container");
-            m_setupMessage = rootVisualElement.Q<Label>("setup-message");
-            m_setupButton = rootVisualElement.Q<Button>("setup-button");
-            m_contentContainer = rootVisualElement.Q<VisualElement>("content-container");
-            m_presetHeader = rootVisualElement.Q<Label>("preset-header");
-            m_rootHeader = rootVisualElement.Q<Label>("root-header");
-            m_overrideHeader = rootVisualElement.Q<Label>("override-header");
-            m_treeHeader = rootVisualElement.Q<Label>("tree-header");
-            m_emptyMessage = rootVisualElement.Q<Label>("empty-message");
-            m_languageSlot = rootVisualElement.Q<VisualElement>("language-slot");
-            m_presetSlot = rootVisualElement.Q<VisualElement>("preset-slot");
-            m_rootSlot = rootVisualElement.Q<VisualElement>("root-slot");
-            m_treeSlot = rootVisualElement.Q<VisualElement>("tree-slot");
-            m_overrideSlot = rootVisualElement.Q<VisualElement>("override-slot");
+            m_languageDropdown = rootVisualElement.Q<DropdownField>("dd-language");
+            m_swapButton = rootVisualElement.Q<Button>("btn-swap");
+            m_presetAddButton = rootVisualElement.Q<Button>("btn-preset-add");
+            m_rootEntryAddButton = rootVisualElement.Q<Button>("btn-swap-root-entry-add");
+            m_overrideEntryAddButton = rootVisualElement.Q<Button>("btn-swap-override-entry-add");
+            m_presetList = rootVisualElement.Q<ListView>("lv-preset-list");
+            m_rootSwapList = rootVisualElement.Q<ListView>("lv-swap-root-entries");
+            m_overrideTree = rootVisualElement.Q<TreeView>("tv-swap-override-components");
+            m_overrideSwapList = rootVisualElement.Q<ListView>("lv-swap-override-entries");
+
+            m_presetHeader = FindSiblingLabel(m_presetList);
+            m_rootHeader = FindSiblingLabel(m_rootSwapList);
+            m_treeHeader = FindSiblingLabel(m_overrideTree);
+            m_overrideHeader = FindSiblingLabel(m_overrideSwapList);
         }
 
         private bool HasRequiredControls()
         {
             return m_targetField != null
-                && m_lockToggle != null
-                && m_setupContainer != null
-                && m_setupMessage != null
-                && m_setupButton != null
-                && m_contentContainer != null
-                && m_presetHeader != null
-                && m_rootHeader != null
-                && m_overrideHeader != null
-                && m_treeHeader != null
-                && m_emptyMessage != null
-                && m_languageSlot != null
-                && m_presetSlot != null
-                && m_rootSlot != null
-                && m_treeSlot != null
-                && m_overrideSlot != null;
+                && m_languageDropdown != null
+                && m_swapButton != null
+                && m_presetAddButton != null
+                && m_rootEntryAddButton != null
+                && m_overrideEntryAddButton != null
+                && m_presetList != null
+                && m_rootSwapList != null
+                && m_overrideTree != null
+                && m_overrideSwapList != null;
         }
 
         private void ClearControlReferences()
         {
             m_targetField = null;
-            m_lockToggle = null;
-            m_setupContainer = null;
-            m_setupMessage = null;
-            m_setupButton = null;
-            m_contentContainer = null;
+            m_languageDropdown = null;
+            m_swapButton = null;
+            m_presetAddButton = null;
+            m_rootEntryAddButton = null;
+            m_overrideEntryAddButton = null;
+            m_presetList = null;
+            m_rootSwapList = null;
+            m_overrideTree = null;
+            m_overrideSwapList = null;
             m_presetHeader = null;
             m_rootHeader = null;
             m_overrideHeader = null;
             m_treeHeader = null;
-            m_emptyMessage = null;
-            m_languageSlot = null;
-            m_presetSlot = null;
-            m_rootSlot = null;
-            m_treeSlot = null;
-            m_overrideSlot = null;
         }
 
         private void UnsubscribeUiCallbacks()
         {
-            if (m_lockToggle != null)
+            if (m_languageDropdown != null)
             {
-                m_lockToggle.UnregisterValueChangedCallback(OnLockChanged);
+                m_languageDropdown.UnregisterValueChangedCallback(OnLanguageValueChanged);
             }
 
-            if (m_setupButton != null)
+            if (m_presetList != null)
             {
-                m_setupButton.clicked -= OnSetupClicked;
+                m_presetList.selectionChanged -= OnPresetSelectionChanged;
             }
 
-            if (m_presetBar != null)
+            if (m_overrideTree != null)
             {
-                m_presetBar.Changed -= OnViewChanged;
+                m_overrideTree.selectionChanged -= OnTreeSelectionChanged;
             }
 
-            if (m_rootSwapList != null)
+            if (m_presetAddButton != null)
             {
-                m_rootSwapList.Changed -= OnViewChanged;
+                m_presetAddButton.clicked -= OnPresetAddClicked;
             }
 
-            if (m_overrideSwapList != null)
+            if (m_rootEntryAddButton != null)
             {
-                m_overrideSwapList.Changed -= OnViewChanged;
+                m_rootEntryAddButton.clicked -= OnRootEntryAddClicked;
             }
 
-            if (m_targetTree != null)
+            if (m_overrideEntryAddButton != null)
             {
-                m_targetTree.RendererSelected -= OnRendererSelected;
+                m_overrideEntryAddButton.clicked -= OnOverrideEntryAddClicked;
             }
         }
 
         private void UnbindViews()
         {
-            if (m_presetBar != null)
+            ClearListView(m_presetList, m_emptyPresets);
+            ClearListView(m_rootSwapList, m_emptySwapEntries);
+            ClearListView(m_overrideSwapList, m_emptySwapEntries);
+
+            if (m_overrideTree != null)
             {
-                m_presetBar.Unbind();
+                m_treeItems.Clear();
+                m_overrideTree.SetRootItems(m_emptyTreeItems);
+                m_overrideTree.Rebuild();
             }
 
-            if (m_rootSwapList != null)
-            {
-                m_rootSwapList.Unbind();
-            }
-
-            if (m_overrideSwapList != null)
-            {
-                m_overrideSwapList.Unbind();
-            }
-
-            if (m_targetTree != null)
-            {
-                m_targetTree.Unbind();
-            }
+            ClearPresetRowBindings();
+            ClearSwapRowBindings();
 
             m_rootSerializedObject = null;
             m_overrideSerializedObject = null;
@@ -333,7 +339,7 @@ namespace com.amari_noa.materilune.editor
 
         private void OnSelectionChanged()
         {
-            if (!m_uiReady || m_isLocked)
+            if (!m_uiReady)
             {
                 return;
             }
@@ -367,37 +373,84 @@ namespace com.amari_noa.materilune.editor
             }
         }
 
-        private void OnLockChanged(ChangeEvent<bool> changeEvent)
+        private void OnLanguageValueChanged(ChangeEvent<string> changeEvent)
         {
-            m_isLocked = changeEvent.newValue;
-            if (!m_isLocked)
+            if (m_languageDropdown == null)
             {
-                m_useTestTarget = false;
-                m_testTarget = null;
-            }
-
-            if (m_uiReady)
-            {
-                Rebuild();
-            }
-        }
-
-        private void OnSetupClicked()
-        {
-            var candidate = m_setupCandidate;
-            if (candidate == null)
-            {
-                Rebuild();
                 return;
             }
 
-            MateriluneSetupService.Setup(candidate);
-            m_currentCandidate = candidate;
-            Rebuild();
+            if (!IsAvailableLanguage(changeEvent.newValue)
+                || !MateriluneL10n.SetLanguage(changeEvent.newValue))
+            {
+                m_languageDropdown.SetValueWithoutNotify(changeEvent.previousValue);
+            }
         }
 
-        private void OnViewChanged()
+        private void OnPresetSelectionChanged(IEnumerable<object> selectedItems)
         {
+            if (m_isRebuilding || m_isRestoringPresetSelection || selectedItems == null)
+            {
+                return;
+            }
+
+            MateriluneSwapRoot selectedPreset = null;
+            foreach (var selectedItem in selectedItems)
+            {
+                selectedPreset = selectedItem as MateriluneSwapRoot;
+                if (selectedPreset != null)
+                {
+                    break;
+                }
+            }
+
+            if (selectedPreset != null)
+            {
+                ActivatePreset(selectedPreset);
+            }
+        }
+
+        private void OnTreeSelectionChanged(IEnumerable<object> selectedItems)
+        {
+            if (m_isRebuilding || selectedItems == null)
+            {
+                return;
+            }
+
+            m_selectedRenderer = null;
+            foreach (var selectedItem in selectedItems)
+            {
+                var transform = selectedItem as Transform;
+                if (transform != null)
+                {
+                    m_selectedRenderer = FindFirstRenderer(transform);
+                    break;
+                }
+            }
+
+            BindOverride(m_selectedRenderer);
+        }
+
+        private void OnRootViewChanged()
+        {
+            OnViewChanged(m_rootSerializedObject);
+        }
+
+        private void OnOverrideViewChanged()
+        {
+            OnViewChanged(m_overrideSerializedObject);
+        }
+
+        private void OnViewChanged(SerializedObject changedObject)
+        {
+            // A row can only report an edit that the user made. Anything raised while the window
+            // is filling its own views comes from the rebuild itself, and acting on it would
+            // rebuild again from inside the rebuild.
+            if (m_isRebuilding || m_bindingDepth > 0)
+            {
+                return;
+            }
+
             var manager = ResolvedManager;
             if (manager == null)
             {
@@ -405,24 +458,14 @@ namespace com.amari_noa.materilune.editor
                 return;
             }
 
-            // The part already recorded the user's edit in the current group. Fold the
+            // The row already recorded the user's edit in the current group. Fold the
             // synchronization into it so one undo takes back both the edit and its effect on
             // the Material Swap components.
             var undoGroup = Undo.GetCurrentGroup();
+            MarkObjectDirty(changedObject == null ? null : changedObject.targetObject);
             MateriluneSwapSynchronizer.Sync(manager);
             Undo.CollapseUndoOperations(undoGroup);
             Rebuild();
-        }
-
-        private void OnRendererSelected(Renderer renderer)
-        {
-            if (!m_uiReady)
-            {
-                return;
-            }
-
-            m_selectedRenderer = renderer;
-            BindOverride(renderer);
         }
 
         private void Rebuild()
@@ -436,77 +479,62 @@ namespace com.amari_noa.materilune.editor
             // still belong to the resolved manager, so editing a row does not reset the panes.
             var previousRenderer = m_selectedRenderer;
             var previousPreset = m_activePreset;
-            UnbindViews();
-            var candidate = GetCandidate();
-            m_currentCandidate = candidate;
-            m_setupCandidate = candidate;
-            var manager = ResolveManager(candidate);
-            m_manager = manager;
-            var target = GetTargetObject(manager);
-
-            if (candidate == null)
+            m_isRebuilding = true;
+            try
             {
-                ShowEmpty();
-                return;
-            }
+                UnbindViews();
+                var candidate = GetCandidate();
+                var manager = ResolveManager(candidate);
+                var target = GetTargetObject(manager);
+                m_manager = manager;
 
-            if (manager == null || target == null)
+                if (candidate == null)
+                {
+                    m_manager = null;
+                    m_activePreset = null;
+                    m_lastActivePreset = null;
+                    m_selectedRenderer = null;
+                    SetTargetField(null);
+                    return;
+                }
+
+                SetTargetField(manager != null && target != null ? target : candidate);
+                if (manager == null || target == null)
+                {
+                    m_manager = null;
+                    m_activePreset = null;
+                    m_lastActivePreset = null;
+                    m_selectedRenderer = null;
+                    return;
+                }
+
+                var activePreset = FindActiveOnly(manager);
+                var activeChanged = activePreset != m_lastActivePreset;
+                m_lastActivePreset = activePreset;
+                m_activePreset = activeChanged && activePreset != null
+                    ? activePreset
+                    : ResolvePreset(manager, previousPreset);
+
+                BindPresetList(manager);
+                BindRoot(m_activePreset);
+                m_selectedRenderer = IsRendererInTarget(target, previousRenderer)
+                    ? previousRenderer
+                    : null;
+                BindTargetTree(target);
+                BindOverride(m_selectedRenderer);
+            }
+            finally
             {
-                m_manager = null;
-                m_activePreset = null;
-                m_selectedRenderer = null;
-                SetDisplay(m_setupContainer, true);
-                SetDisplay(m_contentContainer, false);
-                SetDisplay(m_emptyMessage, false);
-                SetTargetField(candidate);
-                return;
+                m_isRebuilding = false;
+                UpdateAddButtonStates();
             }
-
-            SetDisplay(m_setupContainer, false);
-            SetDisplay(m_contentContainer, true);
-            SetDisplay(m_emptyMessage, false);
-            SetTargetField(target);
-
-            m_presetBar.Bind(manager);
-            m_targetTree.Bind(target);
-            // Follow whichever preset became active, whatever caused it: the preset bar, an undo
-            // or an outside change. Anything that leaves the active preset alone, such as adding
-            // one, keeps the preset the user was looking at on screen.
-            var activePreset = FindActiveOnly(manager);
-            var activeChanged = activePreset != m_lastActivePreset;
-            m_lastActivePreset = activePreset;
-            m_activePreset = activeChanged && activePreset != null
-                ? activePreset
-                : ResolvePreset(manager, previousPreset);
-            BindRoot(m_activePreset);
-
-            m_selectedRenderer = FindOverride(m_activePreset, previousRenderer) == null
-                ? null
-                : previousRenderer;
-            if (m_selectedRenderer != null)
-            {
-                m_targetTree.SelectRenderer(m_selectedRenderer);
-            }
-
-            BindOverride(m_selectedRenderer);
-        }
-
-        private void ShowEmpty()
-        {
-            m_manager = null;
-            m_activePreset = null;
-            m_selectedRenderer = null;
-            SetDisplay(m_setupContainer, false);
-            SetDisplay(m_contentContainer, false);
-            SetDisplay(m_emptyMessage, true);
-            SetTargetField(null);
         }
 
         private GameObject GetCandidate()
         {
-            if (m_isLocked || m_useTestTarget)
+            if (m_useTestTarget)
             {
-                return m_currentCandidate == null ? m_testTarget : m_currentCandidate;
+                return m_testTarget;
             }
 
             return Selection.activeGameObject;
@@ -514,49 +542,826 @@ namespace com.amari_noa.materilune.editor
 
         private void BindRoot(MateriluneSwapRoot preset)
         {
-            if (preset == null || m_rootSwapList == null)
+            m_bindingDepth++;
+            try
             {
-                return;
-            }
+                ClearListView(m_rootSwapList, m_emptySwapEntries);
+                m_rootSerializedObject = null;
+                if (preset == null || m_rootSwapList == null || preset.gameObject == null)
+                {
+                    return;
+                }
 
-            m_rootSerializedObject = new SerializedObject(preset);
-            var swapsProperty = m_rootSerializedObject.FindProperty("m_swaps");
-            if (swapsProperty != null)
+                m_rootSerializedObject = new SerializedObject(preset);
+                var swapsProperty = m_rootSerializedObject.FindProperty("m_swaps");
+                if (m_rootSerializedObject.targetObject != null && swapsProperty != null && swapsProperty.isArray)
+                {
+                    m_rootSwapList.itemsSource = preset.Swaps;
+                    m_rootSwapList.Rebuild();
+                }
+            }
+            finally
             {
-                m_rootSwapList.Bind(swapsProperty, preset.AvailableMaterials, preset.CandidateMode);
+                m_bindingDepth--;
+                UpdateAddButtonStates();
             }
         }
 
         private void BindOverride(Renderer renderer)
         {
-            if (m_overrideSwapList == null)
+            // The button state follows the binding on every path, including the ones that leave
+            // the list empty. Selecting an object without a renderer would otherwise keep the
+            // add button enabled from the previous selection.
+            m_bindingDepth++;
+            try
+            {
+                ClearListView(m_overrideSwapList, m_emptySwapEntries);
+                m_overrideSerializedObject = null;
+                var preset = m_activePreset;
+                if (m_overrideSwapList == null || preset == null || renderer == null || preset.gameObject == null)
+                {
+                    return;
+                }
+
+                var operationOverride = FindOverride(preset, renderer);
+                if (operationOverride == null)
+                {
+                    return;
+                }
+
+                m_overrideSerializedObject = new SerializedObject(operationOverride);
+                var swapsProperty = m_overrideSerializedObject.FindProperty("m_swaps");
+                if (m_overrideSerializedObject.targetObject != null && swapsProperty != null && swapsProperty.isArray)
+                {
+                    m_overrideSwapList.itemsSource = operationOverride.Swaps;
+                    m_overrideSwapList.Rebuild();
+                }
+            }
+            finally
+            {
+                m_bindingDepth--;
+                UpdateAddButtonStates();
+            }
+        }
+
+        private void ConfigureListAndTreeViews()
+        {
+            // The collection views virtualize by fixed height, so every row height is stated
+            // here. A swap row holds an object field on each side and needs more room than a
+            // plain label.
+            m_presetList.makeItem = MakePresetItem;
+            m_presetList.bindItem = BindPresetItem;
+            m_presetList.unbindItem = UnbindPresetItem;
+            m_presetList.fixedItemHeight = LabelRowHeight;
+            m_presetList.selectionType = SelectionType.Single;
+
+            m_rootSwapList.makeItem = MakeSwapItem;
+            m_rootSwapList.bindItem = BindRootSwapItem;
+            m_rootSwapList.unbindItem = UnbindSwapItem;
+            m_rootSwapList.fixedItemHeight = SwapRowHeight;
+            m_rootSwapList.selectionType = SelectionType.None;
+
+            m_overrideSwapList.makeItem = MakeSwapItem;
+            m_overrideSwapList.bindItem = BindOverrideSwapItem;
+            m_overrideSwapList.unbindItem = UnbindSwapItem;
+            m_overrideSwapList.fixedItemHeight = SwapRowHeight;
+            m_overrideSwapList.selectionType = SelectionType.None;
+
+            m_overrideTree.makeItem = () => new Label();
+            m_overrideTree.bindItem = BindTreeItem;
+            m_overrideTree.fixedItemHeight = LabelRowHeight;
+            m_overrideTree.selectionType = SelectionType.Single;
+        }
+
+        private static Label FindSiblingLabel(VisualElement control)
+        {
+            if (control == null || control.parent == null)
+            {
+                return null;
+            }
+
+            foreach (var child in control.parent.Children())
+            {
+                if (child is Label label)
+                {
+                    return label;
+                }
+            }
+
+            return null;
+        }
+
+        private void BindPresetList(MateriluneSwap manager)
+        {
+            ClearListView(m_presetList, m_emptyPresets);
+            if (manager == null || m_presetList == null)
             {
                 return;
             }
 
-            m_overrideSwapList.Unbind();
-            m_overrideSerializedObject = null;
-            var preset = m_activePreset;
-            if (preset == null || renderer == null)
+            var presets = manager.GetPresets();
+            m_presetList.itemsSource = presets ?? m_emptyPresets;
+            m_presetList.Rebuild();
+            ApplyPresetSelection();
+        }
+
+        private void BindPresetItem(VisualElement element, int index)
+        {
+            UnbindPresetItem(element, index);
+            var label = element == null ? null : element.Q<Label>("lbl-preset-name");
+            var removeButton = element == null ? null : element.Q<Button>("btn-preset-remove");
+            if (label == null || removeButton == null)
             {
                 return;
             }
 
-            var operationOverride = FindOverride(preset, renderer);
-            if (operationOverride == null)
+            label.text = string.Empty;
+            label.RemoveFromClassList(ActivePresetClass);
+            removeButton.text = "-";
+            removeButton.SetEnabled(false);
+            var presets = m_presetList == null ? null : m_presetList.itemsSource;
+            if (presets == null || index < 0 || index >= presets.Count)
             {
                 return;
             }
 
-            m_overrideSerializedObject = new SerializedObject(operationOverride);
-            var swapsProperty = m_overrideSerializedObject.FindProperty("m_swaps");
-            if (swapsProperty != null)
+            var preset = presets[index] as MateriluneSwapRoot;
+            if (preset == null || preset.gameObject == null)
             {
-                m_overrideSwapList.Bind(
-                    swapsProperty,
-                    operationOverride.AvailableMaterials,
-                    operationOverride.CandidateMode);
+                return;
             }
+
+            label.text = preset.gameObject.name;
+            if (preset.gameObject.activeSelf)
+            {
+                label.AddToClassList(ActivePresetClass);
+            }
+
+            var capturedPreset = preset;
+            Action removeAction = () => RemovePreset(capturedPreset);
+            removeButton.clicked += removeAction;
+            removeButton.SetEnabled(presets.Count > 1);
+            m_presetRowBindings[element] = new PresetRowBinding(removeButton, removeAction);
+            ApplyPresetRowLocalizedText(removeButton);
+        }
+
+        private VisualElement MakePresetItem()
+        {
+            var item = new VisualElement();
+            if (m_presetRowTemplate != null)
+            {
+                m_presetRowTemplate.CloneTree(item);
+            }
+
+            return item;
+        }
+
+        private void UnbindPresetItem(VisualElement element, int index)
+        {
+            if (element == null)
+            {
+                return;
+            }
+
+            PresetRowBinding binding;
+            if (m_presetRowBindings.TryGetValue(element, out binding))
+            {
+                binding.RemoveButton.clicked -= binding.RemoveAction;
+                m_presetRowBindings.Remove(element);
+            }
+
+            var label = element.Q<Label>("lbl-preset-name");
+            if (label != null)
+            {
+                label.text = string.Empty;
+                label.RemoveFromClassList(ActivePresetClass);
+            }
+
+            var removeButton = element.Q<Button>("btn-preset-remove");
+            if (removeButton != null)
+            {
+                removeButton.text = "-";
+                removeButton.SetEnabled(false);
+            }
+        }
+
+        private void ApplyPresetSelection()
+        {
+            if (m_presetList == null)
+            {
+                return;
+            }
+
+            var selectedIndex = -1;
+            var presets = m_presetList.itemsSource;
+            if (presets != null && m_activePreset != null)
+            {
+                for (var index = 0; index < presets.Count; index++)
+                {
+                    if (presets[index] == m_activePreset)
+                    {
+                        selectedIndex = index;
+                        break;
+                    }
+                }
+            }
+
+            m_isRestoringPresetSelection = true;
+            try
+            {
+                m_presetList.SetSelectionWithoutNotify(
+                    selectedIndex < 0 ? new int[0] : new[] { selectedIndex });
+            }
+            finally
+            {
+                m_isRestoringPresetSelection = false;
+            }
+        }
+
+        private void ActivatePreset(MateriluneSwapRoot preset)
+        {
+            var manager = ResolvedManager;
+            if (manager == null || preset == null || preset.gameObject == null || !ContainsPreset(manager, preset))
+            {
+                return;
+            }
+
+            if (preset.gameObject.activeSelf)
+            {
+                m_activePreset = preset;
+                BindRoot(preset);
+                ApplyPresetSelection();
+                BindOverride(m_selectedRenderer);
+                return;
+            }
+
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            var undoLabel = MateriluneL10n.Get(
+                "materilune.undo.activate_preset",
+                "Activate Materilune Preset");
+            Undo.SetCurrentGroupName(undoLabel);
+            try
+            {
+                Undo.RecordObject(preset.gameObject, undoLabel);
+                preset.gameObject.SetActive(true);
+                EditorUtility.SetDirty(preset.gameObject);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(preset.gameObject);
+
+                foreach (var currentPreset in manager.GetPresets())
+                {
+                    if (currentPreset == null
+                        || currentPreset == preset
+                        || currentPreset.gameObject == null
+                        || !currentPreset.gameObject.activeSelf)
+                    {
+                        continue;
+                    }
+
+                    Undo.RecordObject(currentPreset.gameObject, undoLabel);
+                    currentPreset.gameObject.SetActive(false);
+                    EditorUtility.SetDirty(currentPreset.gameObject);
+                    PrefabUtility.RecordPrefabInstancePropertyModifications(currentPreset.gameObject);
+                }
+
+                MateriluneSwapSynchronizer.Sync(manager);
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            Rebuild();
+        }
+
+        private static bool ContainsPreset(MateriluneSwap manager, MateriluneSwapRoot targetPreset)
+        {
+            if (manager == null || targetPreset == null)
+            {
+                return false;
+            }
+
+            foreach (var preset in manager.GetPresets())
+            {
+                if (preset == targetPreset)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void OnPresetAddClicked()
+        {
+            var manager = ResolvedManager;
+            if (manager == null)
+            {
+                UpdateAddButtonStates();
+                return;
+            }
+
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName(MateriluneL10n.Get(
+                "materilune.undo.add_preset",
+                "Add Materilune Preset"));
+            try
+            {
+                MateriluneSetupService.AddPreset(manager);
+                MateriluneSwapSynchronizer.Sync(manager);
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            Rebuild();
+        }
+
+        private void OnRootEntryAddClicked()
+        {
+            AddSwapEntry(m_rootSerializedObject);
+        }
+
+        private void OnOverrideEntryAddClicked()
+        {
+            AddSwapEntry(m_overrideSerializedObject);
+        }
+
+        private void AddSwapEntry(SerializedObject serializedObject)
+        {
+            var manager = ResolvedManager;
+            if (manager == null || serializedObject == null || serializedObject.targetObject == null)
+            {
+                UpdateAddButtonStates();
+                return;
+            }
+
+            serializedObject.Update();
+            var swapsProperty = serializedObject.FindProperty("m_swaps");
+            if (swapsProperty == null || !swapsProperty.isArray)
+            {
+                UpdateAddButtonStates();
+                return;
+            }
+
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            var changed = false;
+            try
+            {
+                var newIndex = swapsProperty.arraySize;
+                swapsProperty.arraySize = newIndex + 1;
+                var newEntry = swapsProperty.GetArrayElementAtIndex(newIndex);
+                var fromProperty = newEntry.FindPropertyRelative("m_from");
+                var toProperty = newEntry.FindPropertyRelative("m_to");
+                if (fromProperty != null)
+                {
+                    fromProperty.objectReferenceValue = null;
+                }
+
+                if (toProperty != null)
+                {
+                    toProperty.objectReferenceValue = null;
+                }
+
+                changed = serializedObject.ApplyModifiedProperties();
+                if (changed)
+                {
+                    MarkObjectDirty(serializedObject.targetObject);
+                    MateriluneSwapSynchronizer.Sync(manager);
+                }
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            if (changed)
+            {
+                Rebuild();
+            }
+        }
+
+        private void RemovePreset(MateriluneSwapRoot preset)
+        {
+            var manager = ResolvedManager;
+            if (manager == null || preset == null || preset.gameObject == null)
+            {
+                Rebuild();
+                return;
+            }
+
+            var presets = manager.GetPresets();
+            if (presets == null || presets.Count <= 1 || !ContainsPreset(manager, preset))
+            {
+                Rebuild();
+                return;
+            }
+
+            var shouldRemove = EditorUtility.DisplayDialog(
+                MateriluneL10n.Get("materilune.ui.window.preset_remove_title", "Remove preset"),
+                MateriluneL10n.Get(
+                    "materilune.ui.window.preset_remove_message",
+                    "Remove this preset and all of its replacement settings?"),
+                MateriluneL10n.Get("materilune.setup.orphan.remove", "Remove"),
+                MateriluneL10n.Get("materilune.setup.orphan.cancel", "Cancel"));
+            if (!shouldRemove)
+            {
+                return;
+            }
+
+            var wasDisplayed = m_activePreset == preset;
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName(MateriluneL10n.Get(
+                "materilune.ui.window.preset_remove_title",
+                "Remove preset"));
+            try
+            {
+                Undo.DestroyObjectImmediate(preset.gameObject);
+                if (wasDisplayed)
+                {
+                    m_activePreset = null;
+                }
+
+                MateriluneSwapSynchronizer.Sync(manager);
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            Rebuild();
+        }
+
+        private void RemoveSwapEntry(SerializedObject serializedObject, int index)
+        {
+            var manager = ResolvedManager;
+            if (manager == null || serializedObject == null || serializedObject.targetObject == null)
+            {
+                Rebuild();
+                return;
+            }
+
+            serializedObject.Update();
+            var swapsProperty = serializedObject.FindProperty("m_swaps");
+            if (swapsProperty == null || !swapsProperty.isArray
+                || index < 0 || index >= swapsProperty.arraySize)
+            {
+                return;
+            }
+
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            var changed = false;
+            try
+            {
+                swapsProperty.DeleteArrayElementAtIndex(index);
+                changed = serializedObject.ApplyModifiedProperties();
+                if (changed)
+                {
+                    MarkObjectDirty(serializedObject.targetObject);
+                    MateriluneSwapSynchronizer.Sync(manager);
+                }
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            if (changed)
+            {
+                Rebuild();
+            }
+        }
+
+        internal void AddPresetForTests()
+        {
+            OnPresetAddClicked();
+        }
+
+        internal void AddRootEntryForTests()
+        {
+            OnRootEntryAddClicked();
+        }
+
+        internal void AddOverrideEntryForTests()
+        {
+            OnOverrideEntryAddClicked();
+        }
+
+        /// <summary>
+        /// Builds and binds one preset row outside the list view, so tests can inspect a row
+        /// without relying on the layout pass that fills a virtualized list.
+        /// </summary>
+        /// <param name="index">The preset index to bind.</param>
+        /// <returns>The bound row, or <see langword="null" /> when the row cannot be built.</returns>
+        internal VisualElement BuildPresetRowForTests(int index)
+        {
+            var row = MakePresetItem();
+            if (row == null)
+            {
+                return null;
+            }
+
+            BindPresetItem(row, index);
+            return row;
+        }
+
+        internal void RemoveRootEntryForTests(int index)
+        {
+            RemoveSwapEntry(m_rootSerializedObject, index);
+        }
+
+        private void BindRootSwapItem(VisualElement element, int index)
+        {
+            BindSwapItem(
+                element,
+                index,
+                m_rootSerializedObject,
+                m_activePreset == null ? null : m_activePreset.AvailableMaterials,
+                m_activePreset == null ? MateriluneCandidateMode.None : m_activePreset.CandidateMode,
+                OnRootViewChanged);
+        }
+
+        private void BindOverrideSwapItem(VisualElement element, int index)
+        {
+            var operationOverride = FindOverride(m_activePreset, m_selectedRenderer);
+            BindSwapItem(
+                element,
+                index,
+                m_overrideSerializedObject,
+                operationOverride == null ? null : operationOverride.AvailableMaterials,
+                operationOverride == null
+                    ? MateriluneCandidateMode.None
+                    : operationOverride.CandidateMode,
+                OnOverrideViewChanged);
+        }
+
+        private void BindSwapItem(
+            VisualElement element,
+            int index,
+            SerializedObject serializedObject,
+            IReadOnlyList<Material> fromCandidates,
+            MateriluneCandidateMode candidateMode,
+            Action changedAction)
+        {
+            ClearSwapRowBinding(element);
+            var entryView = element == null ? null : element.Q<MateriluneSwapEntryView>();
+            var removeButton = element == null ? null : element.Q<Button>("btn-swap-entry-remove");
+            if (entryView == null || removeButton == null)
+            {
+                return;
+            }
+
+            entryView.Unbind();
+            removeButton.text = "-";
+            removeButton.SetEnabled(false);
+            if (serializedObject == null || serializedObject.targetObject == null)
+            {
+                return;
+            }
+
+            serializedObject.Update();
+            var swapsProperty = serializedObject.FindProperty("m_swaps");
+            if (swapsProperty == null || !swapsProperty.isArray || index < 0 || index >= swapsProperty.arraySize)
+            {
+                return;
+            }
+
+            entryView.Bind(swapsProperty.GetArrayElementAtIndex(index), fromCandidates, candidateMode);
+            var capturedSerializedObject = serializedObject;
+            var capturedIndex = index;
+            Action removeAction = () => RemoveSwapEntry(capturedSerializedObject, capturedIndex);
+            entryView.Changed += changedAction;
+            removeButton.clicked += removeAction;
+            removeButton.SetEnabled(true);
+            ApplySwapRowLocalizedText(removeButton);
+            m_swapRowBindings[element] = new SwapRowBinding(
+                entryView,
+                removeButton,
+                changedAction,
+                removeAction);
+        }
+
+        private void UnbindSwapItem(VisualElement element, int index)
+        {
+            ClearSwapRowBinding(element);
+        }
+
+        private VisualElement MakeSwapItem()
+        {
+            var item = new VisualElement();
+            if (m_swapEntryRowTemplate == null)
+            {
+                return item;
+            }
+
+            m_swapEntryRowTemplate.CloneTree(item);
+            var slot = item.Q<VisualElement>("elm-swap-entry-slot");
+            if (slot != null)
+            {
+                slot.Add(new MateriluneSwapEntryView());
+            }
+
+            return item;
+        }
+
+        private void ClearSwapRowBinding(VisualElement element)
+        {
+            if (element == null)
+            {
+                return;
+            }
+
+            SwapRowBinding binding;
+            if (m_swapRowBindings.TryGetValue(element, out binding))
+            {
+                binding.EntryView.Changed -= binding.ChangedAction;
+                binding.RemoveButton.clicked -= binding.RemoveAction;
+                binding.EntryView.Unbind();
+                binding.RemoveButton.SetEnabled(false);
+                m_swapRowBindings.Remove(element);
+                return;
+            }
+
+            var entryView = element.Q<MateriluneSwapEntryView>();
+            if (entryView != null)
+            {
+                entryView.Unbind();
+            }
+
+            var removeButton = element.Q<Button>("btn-swap-entry-remove");
+            if (removeButton != null)
+            {
+                removeButton.SetEnabled(false);
+            }
+        }
+
+        private void ClearPresetRowBindings()
+        {
+            foreach (var binding in new List<PresetRowBinding>(m_presetRowBindings.Values))
+            {
+                binding.RemoveButton.clicked -= binding.RemoveAction;
+            }
+
+            m_presetRowBindings.Clear();
+        }
+
+        private void ClearSwapRowBindings()
+        {
+            foreach (var binding in new List<SwapRowBinding>(m_swapRowBindings.Values))
+            {
+                binding.EntryView.Changed -= binding.ChangedAction;
+                binding.RemoveButton.clicked -= binding.RemoveAction;
+                binding.EntryView.Unbind();
+                binding.RemoveButton.SetEnabled(false);
+            }
+
+            m_swapRowBindings.Clear();
+        }
+
+        private void BindTargetTree(GameObject target)
+        {
+            if (m_overrideTree == null)
+            {
+                return;
+            }
+
+            m_treeItems.Clear();
+            if (target != null && target.transform != null
+                && !MateriluneSetupService.IsExcludedObject(target.transform))
+            {
+                m_treeItems.Add(BuildTreeItem(target.transform));
+            }
+
+            m_overrideTree.SetRootItems(m_treeItems);
+            m_overrideTree.Rebuild();
+
+            if (m_selectedRenderer != null)
+            {
+                var selectedTransform = FindTransformForRenderer(target, m_selectedRenderer);
+                if (selectedTransform != null)
+                {
+                    // Tree items are keyed by instance id, so the selection is restored by id.
+                    // Restoring it without notifying keeps the rebuild from re-entering the
+                    // selection handler that started it.
+                    m_overrideTree.SetSelectionByIdWithoutNotify(
+                        new[] { selectedTransform.GetInstanceID() });
+                }
+            }
+        }
+
+        private static TreeViewItemData<Transform> BuildTreeItem(Transform transform)
+        {
+            var children = new List<TreeViewItemData<Transform>>();
+            for (var index = 0; index < transform.childCount; index++)
+            {
+                var child = transform.GetChild(index);
+                if (child == null || MateriluneSetupService.IsExcludedObject(child))
+                {
+                    continue;
+                }
+
+                children.Add(BuildTreeItem(child));
+            }
+
+            return new TreeViewItemData<Transform>(transform.GetInstanceID(), transform, children);
+        }
+
+        private void BindTreeItem(VisualElement element, int index)
+        {
+            var label = element as Label;
+            if (label == null || m_overrideTree == null)
+            {
+                return;
+            }
+
+            var transform = m_overrideTree.GetItemDataForIndex<Transform>(index);
+            label.text = transform == null || transform.gameObject == null
+                ? string.Empty
+                : transform.gameObject.name;
+        }
+
+        private static Renderer FindFirstRenderer(Transform transform)
+        {
+            if (transform == null)
+            {
+                return null;
+            }
+
+            foreach (var renderer in transform.GetComponents<Renderer>())
+            {
+                if (renderer != null)
+                {
+                    return renderer;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsRendererInTarget(GameObject target, Renderer renderer)
+        {
+            return renderer != null && FindTransformForRenderer(target, renderer) != null;
+        }
+
+        private static Transform FindTransformForRenderer(GameObject target, Renderer renderer)
+        {
+            if (target == null || renderer == null)
+            {
+                return null;
+            }
+
+            return FindTransformForRenderer(target.transform, renderer);
+        }
+
+        private static Transform FindTransformForRenderer(Transform transform, Renderer renderer)
+        {
+            if (transform == null || MateriluneSetupService.IsExcludedObject(transform))
+            {
+                return null;
+            }
+
+            foreach (var currentRenderer in transform.GetComponents<Renderer>())
+            {
+                if (currentRenderer == renderer)
+                {
+                    return transform;
+                }
+            }
+
+            for (var index = 0; index < transform.childCount; index++)
+            {
+                var result = FindTransformForRenderer(transform.GetChild(index), renderer);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsAvailableLanguage(string languageCode)
+        {
+            var availableLanguages = MateriluneL10n.GetAvailableLanguages();
+            if (string.IsNullOrEmpty(languageCode) || availableLanguages == null)
+            {
+                return false;
+            }
+
+            foreach (var availableLanguage in availableLanguages)
+            {
+                if (availableLanguage == languageCode)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -771,12 +1576,65 @@ namespace com.amari_noa.materilune.editor
             }
         }
 
-        private static void SetDisplay(VisualElement element, bool visible)
+        private static void MarkObjectDirty(UnityEngine.Object target)
         {
-            if (element != null)
+            if (target == null)
             {
-                element.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+                return;
             }
+
+            EditorUtility.SetDirty(target);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(target);
+        }
+
+        private void UpdateAddButtonStates()
+        {
+            var manager = ResolvedManager;
+            if (m_presetAddButton != null)
+            {
+                m_presetAddButton.SetEnabled(manager != null);
+            }
+
+            var canEditRoot = manager != null
+                && m_activePreset != null
+                && m_activePreset.gameObject != null
+                && CanEditSerializedSwaps(m_rootSerializedObject);
+            if (m_rootEntryAddButton != null)
+            {
+                m_rootEntryAddButton.SetEnabled(canEditRoot);
+            }
+
+            var canEditOverride = manager != null
+                && m_activePreset != null
+                && m_activePreset.gameObject != null
+                && m_selectedRenderer != null
+                && CanEditSerializedSwaps(m_overrideSerializedObject);
+            if (m_overrideEntryAddButton != null)
+            {
+                m_overrideEntryAddButton.SetEnabled(canEditOverride);
+            }
+        }
+
+        private static bool CanEditSerializedSwaps(SerializedObject serializedObject)
+        {
+            if (serializedObject == null || serializedObject.targetObject == null)
+            {
+                return false;
+            }
+
+            var swapsProperty = serializedObject.FindProperty("m_swaps");
+            return swapsProperty != null && swapsProperty.isArray;
+        }
+
+        private static void ClearListView(ListView listView, System.Collections.IList emptyItems)
+        {
+            if (listView == null)
+            {
+                return;
+            }
+
+            listView.itemsSource = emptyItems;
+            listView.Rebuild();
         }
 
         private void ApplyLocalizedTexts()
@@ -784,25 +1642,60 @@ namespace com.amari_noa.materilune.editor
             titleContent = new GUIContent(MateriluneL10n.Get(
                 "materilune.ui.window.title",
                 "Materilune"));
-            if (m_lockToggle != null)
+            if (m_targetField != null)
             {
-                m_lockToggle.tooltip = MateriluneL10n.Get(
-                    "materilune.ui.window.lock_tooltip",
-                    "Keep the current target when the selection changes");
+                m_targetField.label = MateriluneL10n.Get(
+                    "materilune.ui.window.target_label",
+                    "Target");
             }
 
-            if (m_setupMessage != null)
+            if (m_languageDropdown != null)
             {
-                m_setupMessage.text = MateriluneL10n.Get(
-                    "materilune.ui.window.setup_message",
-                    "Materilune is not set up on this object yet.");
+                m_languageDropdown.label = MateriluneL10n.Get(
+                    "materilune.language.label",
+                    "Language");
+                RefreshLanguageDropdown();
             }
 
-            if (m_setupButton != null)
+            if (m_swapButton != null)
             {
-                m_setupButton.text = MateriluneL10n.Get(
-                    "materilune.ui.window.setup_button",
-                    "Run setup");
+                m_swapButton.text = MateriluneL10n.Get(
+                    "materilune.ui.window.swap_tab",
+                    "Material Swap");
+            }
+
+            if (m_presetAddButton != null)
+            {
+                m_presetAddButton.text = "+";
+                m_presetAddButton.tooltip = MateriluneL10n.Get(
+                    "materilune.ui.window.preset_add_tooltip",
+                    "Add preset");
+            }
+
+            if (m_rootEntryAddButton != null)
+            {
+                m_rootEntryAddButton.text = "+";
+                m_rootEntryAddButton.tooltip = MateriluneL10n.Get(
+                    "materilune.ui.window.entry_add_tooltip",
+                    "Add replacement entry");
+            }
+
+            if (m_overrideEntryAddButton != null)
+            {
+                m_overrideEntryAddButton.text = "+";
+                m_overrideEntryAddButton.tooltip = MateriluneL10n.Get(
+                    "materilune.ui.window.entry_add_tooltip",
+                    "Add replacement entry");
+            }
+
+            foreach (var binding in m_presetRowBindings.Values)
+            {
+                ApplyPresetRowLocalizedText(binding.RemoveButton);
+            }
+
+            foreach (var binding in m_swapRowBindings.Values)
+            {
+                ApplySwapRowLocalizedText(binding.RemoveButton);
             }
 
             if (m_rootHeader != null)
@@ -833,16 +1726,79 @@ namespace com.amari_noa.materilune.editor
                     "Target meshes");
             }
 
-            if (m_emptyMessage != null)
+            UpdateAddButtonStates();
+        }
+
+        private static void ApplyPresetRowLocalizedText(Button removeButton)
+        {
+            if (removeButton == null)
             {
-                m_emptyMessage.text = MateriluneL10n.Get(
-                    "materilune.ui.window.empty_message",
-                    "Select an avatar or outfit object in the hierarchy.");
+                return;
             }
 
-            if (m_languageSelector != null)
+            removeButton.text = "-";
+            removeButton.tooltip = MateriluneL10n.Get(
+                "materilune.ui.window.preset_remove_tooltip",
+                "Remove this preset");
+        }
+
+        private static void ApplySwapRowLocalizedText(Button removeButton)
+        {
+            if (removeButton == null)
             {
-                m_languageSelector.Refresh();
+                return;
+            }
+
+            removeButton.text = "-";
+            removeButton.tooltip = MateriluneL10n.Get(
+                "materilune.ui.window.entry_remove_tooltip",
+                "Remove this entry");
+        }
+
+        private void RefreshLanguageDropdown()
+        {
+            if (m_languageDropdown == null)
+            {
+                return;
+            }
+
+            var availableLanguages = MateriluneL10n.GetAvailableLanguages();
+            var choices = availableLanguages == null
+                ? new List<string>()
+                : new List<string>(availableLanguages);
+            m_languageDropdown.choices = choices;
+            m_languageDropdown.SetValueWithoutNotify(MateriluneL10n.CurrentLanguageCode);
+        }
+
+        private sealed class PresetRowBinding
+        {
+            internal readonly Button RemoveButton;
+            internal readonly Action RemoveAction;
+
+            internal PresetRowBinding(Button removeButton, Action removeAction)
+            {
+                RemoveButton = removeButton;
+                RemoveAction = removeAction;
+            }
+        }
+
+        private sealed class SwapRowBinding
+        {
+            internal readonly MateriluneSwapEntryView EntryView;
+            internal readonly Button RemoveButton;
+            internal readonly Action ChangedAction;
+            internal readonly Action RemoveAction;
+
+            internal SwapRowBinding(
+                MateriluneSwapEntryView entryView,
+                Button removeButton,
+                Action changedAction,
+                Action removeAction)
+            {
+                EntryView = entryView;
+                RemoveButton = removeButton;
+                ChangedAction = changedAction;
+                RemoveAction = removeAction;
             }
         }
 

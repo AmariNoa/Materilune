@@ -6,3 +6,14 @@
 
    Part-local styles live with each part under Editor/UI/<part>/. Override them from here
    only where this window needs a different arrangement, so the parts stay reusable. */
+
+.materilune-window__preset--active {
+    -unity-font-style: bold;
+}
+
+/* TreeView paints its own background from the built-in editor theme, which hides the
+   surrounding box colour that the neighbouring ListView columns show through. Clear it so
+   every column inside the same box reads as one surface. */
+#tv-swap-override-components {
+    background-color: rgba(0, 0, 0, 0);
+}

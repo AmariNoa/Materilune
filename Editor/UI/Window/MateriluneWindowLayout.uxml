@@ -1,9 +1,10 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
-    <ui:VisualElement style="flex-grow: 1;">
+    <ui:VisualElement style="flex-grow: 1; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px;">
         <ui:VisualElement name="elm-header" style="flex-grow: 1; height: 40px; max-height: 40px; min-height: 40px; flex-direction: row;">
             <ui:VisualElement style="flex-grow: 1;">
                 <uie:ObjectField label="Object Field" name="target-field" />
             </ui:VisualElement>
+            <ui:VisualElement style="flex-grow: 1; max-width: 5%;" />
             <ui:VisualElement style="flex-grow: 1;">
                 <ui:DropdownField label="Language" name="dd-language" />
             </ui:VisualElement>
@@ -15,22 +16,25 @@
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:VisualElement name="elm-tab-page-material-swap" style="flex-grow: 1; flex-direction: row; justify-content: space-between; min-height: 0;">
-                <ui:VisualElement style="flex-grow: 1; max-width: 20%; min-height: 0; min-width: 0;">
+                <ui:VisualElement style="flex-grow: 1; max-width: 20%; min-height: 0; min-width: 0; background-color: rgb(77, 77, 77); margin-top: 10px; margin-right: 10px; margin-bottom: 10px; margin-left: 10px; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px;">
                     <ui:Label tabindex="-1" text="Preset List" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
-                    <ui:ListView style="flex-grow: 1; min-height: 0;" />
+                    <ui:ListView name="lv-preset-list" style="flex-grow: 1; min-height: 0;" />
+                    <ui:Button name="btn-preset-add" style="flex-shrink: 0;" />
                 </ui:VisualElement>
-                <ui:VisualElement style="flex-grow: 1; flex-direction: row; min-height: 0; min-width: 0;">
+                <ui:VisualElement style="flex-grow: 1; flex-direction: row; min-height: 0; min-width: 0; background-color: rgb(77, 77, 77); margin-top: 10px; margin-right: 10px; margin-bottom: 10px; margin-left: 10px; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px;">
                     <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0;">
                         <ui:Label tabindex="-1" text="Materilune Swap Root Component" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
-                        <ui:ListView style="flex-grow: 1; min-height: 0;" />
+                        <ui:ListView name="lv-swap-root-entries" style="flex-grow: 1; min-height: 0;" />
+                        <ui:Button name="btn-swap-root-entry-add" style="flex-shrink: 0;" />
                     </ui:VisualElement>
                     <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0;">
                         <ui:Label tabindex="-1" text="Materilune Swap Override Components" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
-                        <ui:TreeView style="flex-grow: 1; min-height: 0;" />
+                        <ui:TreeView name="tv-swap-override-components" style="flex-grow: 1; min-height: 0;" />
                     </ui:VisualElement>
                     <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0;">
                         <ui:Label tabindex="-1" text="Materilune Swap Override Details" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
-                        <ui:ListView style="flex-grow: 1; min-height: 0;" />
+                        <ui:ListView name="lv-swap-override-entries" style="flex-grow: 1; min-height: 0;" />
+                        <ui:Button name="btn-swap-override-entry-add" style="flex-shrink: 0;" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

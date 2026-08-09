@@ -119,15 +119,15 @@ namespace com.amari_noa.materilune.editor
                 return;
             }
 
-            m_fromField.BindProperty(fromProperty);
-            m_toField.BindProperty(toProperty);
-
-            // Serialized bindings only refresh once the element is attached to a panel, so
-            // mirror the current values immediately for hosts that read them synchronously.
+            // The fields are driven by hand rather than by a serialized binding. A binding
+            // pushes the property value into the field on its own schedule, and the resulting
+            // change event is indistinguishable from a user edit, so every rebind would look
+            // like an edit and re-enter the host that triggered it. Writing the values here
+            // keeps change events limited to actual user interaction.
             m_fromField.SetValueWithoutNotify(fromProperty.objectReferenceValue);
             m_toField.SetValueWithoutNotify(toProperty.objectReferenceValue);
-            m_fromField.RegisterValueChangedCallback(OnFieldValueChanged);
-            m_toField.RegisterValueChangedCallback(OnFieldValueChanged);
+            m_fromField.RegisterValueChangedCallback(OnFromFieldValueChanged);
+            m_toField.RegisterValueChangedCallback(OnToFieldValueChanged);
             m_isBound = true;
             UpdateControlState();
         }
@@ -144,10 +144,10 @@ namespace com.amari_noa.materilune.editor
 
             if (m_isBound)
             {
-                m_fromField.UnregisterValueChangedCallback(OnFieldValueChanged);
-                m_toField.UnregisterValueChangedCallback(OnFieldValueChanged);
-                m_fromField.Unbind();
-                m_toField.Unbind();
+                m_fromField.UnregisterValueChangedCallback(OnFromFieldValueChanged);
+                m_toField.UnregisterValueChangedCallback(OnToFieldValueChanged);
+                m_fromField.SetValueWithoutNotify(null);
+                m_toField.SetValueWithoutNotify(null);
             }
 
             m_swapEntryProperty = null;
@@ -285,22 +285,68 @@ namespace com.amari_noa.materilune.editor
             menu.DropDown(m_fromPicker.worldBound, m_fromPicker);
         }
 
-        private void OnFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)
+        private void OnFromFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)
         {
-            UpdateControlState();
-            Changed?.Invoke();
+            ApplyFieldValue("m_from", changeEvent.newValue as Material);
+        }
+
+        private void OnToFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)
+        {
+            ApplyFieldValue("m_to", changeEvent.newValue as Material);
+        }
+
+        private void ApplyFieldValue(string relativePath, Material material)
+        {
+            if (!CanEdit())
+            {
+                return;
+            }
+
+            var serializedObject = m_swapEntryProperty.serializedObject;
+            serializedObject.Update();
+            var property = m_swapEntryProperty.FindPropertyRelative(relativePath);
+            if (property == null)
+            {
+                return;
+            }
+
+            property.objectReferenceValue = material;
+            ApplyChanges(serializedObject);
         }
 
         private void ApplyChanges(SerializedObject serializedObject)
         {
+            // Changed reports an actual data change. Reporting a no-op edit would make hosts
+            // rebuild for nothing, and a rebuild rebinds this view, which would loop.
             if (!serializedObject.ApplyModifiedProperties())
             {
                 UpdateControlState();
                 return;
             }
 
+            SyncFieldsFromProperty();
             UpdateControlState();
             Changed?.Invoke();
+        }
+
+        private void SyncFieldsFromProperty()
+        {
+            if (!CanEdit())
+            {
+                return;
+            }
+
+            var fromProperty = m_swapEntryProperty.FindPropertyRelative("m_from");
+            var toProperty = m_swapEntryProperty.FindPropertyRelative("m_to");
+            if (fromProperty != null)
+            {
+                m_fromField.SetValueWithoutNotify(fromProperty.objectReferenceValue);
+            }
+
+            if (toProperty != null)
+            {
+                m_toField.SetValueWithoutNotify(toProperty.objectReferenceValue);
+            }
         }
 
         private void UpdateControlState()
