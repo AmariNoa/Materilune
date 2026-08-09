@@ -23,7 +23,16 @@
       "available_materials": "Available materials",
       "swaps": "Material swaps",
       "swap_from": "From",
-      "swap_to": "To"
+      "swap_to": "To",
+      "open_window": "Open in Materilune Window",
+      "multiple_objects": "Multiple objects selected",
+      "none": "None",
+      "swap_summary": "Presets: {0}\nActive preset: {1}",
+      "root_summary": "Target: {0}\nReplacements set: {1} / {2}{3}",
+      "override_summary": "Target mesh: {0}\nReplacements set: {1} / {2}",
+      "orphaned_suffix": " (orphaned: {0})",
+      "load_error": "Materilune could not load the inspector UI assets.",
+      "missing_element_error": "Materilune inspector UI is missing a required element."
     },
     "ui": {
       "swap_entry": {

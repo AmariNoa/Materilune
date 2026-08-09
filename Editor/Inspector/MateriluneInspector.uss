@@ -1,0 +1,11 @@
+.materilune-inspector-summary {
+    white-space: normal;
+    min-height: 32px;
+    max-height: 32px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.materilune-inspector-summary + .unity-button {
+    margin-bottom: 2px;
+}

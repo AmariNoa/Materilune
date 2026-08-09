@@ -23,7 +23,16 @@
       "available_materials": "使用可能なマテリアル",
       "swaps": "マテリアルの差し替え",
       "swap_from": "変更元",
-      "swap_to": "変更先"
+      "swap_to": "変更先",
+      "open_window": "Materilune ウィンドウで開く",
+      "multiple_objects": "複数のオブジェクトを選択中",
+      "none": "なし",
+      "swap_summary": "プリセット: {0} 件\nアクティブなプリセット: {1}",
+      "root_summary": "対象: {0}\n置換設定 {1} / {2} 件{3}",
+      "override_summary": "対象メッシュ: {0}\n置換設定 {1} / {2} 件",
+      "orphaned_suffix": "（孤立エントリ {0} 件）",
+      "load_error": "Materilune のインスペクタ UI アセットを読み込めませんでした。",
+      "missing_element_error": "Materilune のインスペクタ UI に必要な要素が見つかりません。"
     },
     "ui": {
       "swap_entry": {
