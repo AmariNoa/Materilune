@@ -27,7 +27,8 @@
     },
     "ui": {
       "swap_entry": {
-        "from_tooltip": "置換するマテリアル",
+        "from_tooltip": "置換元のマテリアル。対象メッシュから自動生成された表示専用の値です",
+        "orphan_tooltip": "このマテリアルは対象メッシュで使われなくなりました。置換先の設定は保持されますが適用されません。",
         "to_tooltip": "置換先のマテリアル",
         "previous_tooltip": "前の候補",
         "next_tooltip": "次の候補",
@@ -55,6 +56,13 @@
         "title": "Materilune",
         "target_label": "対象",
         "swap_tab": "マテリアル置換",
+        "status_no_target": "Hierarchy で対象のオブジェクトを選択してください。",
+        "status_not_set_up": "このオブジェクトには Materilune がセットアップされていません。",
+        "status_update_required": "対象メッシュに、一覧へ未登録のマテリアルがあります。",
+        "status_summary": "プリセット {0} 件 / 対象メッシュ {1} 件 / 置換設定 {2} / {3} 件",
+        "status_summary_orphans": "（孤立エントリ {0} 件）",
+        "update_button": "更新",
+        "update_tooltip": "対象メッシュから置換エントリを再生成します",
         "preset_add_tooltip": "プリセットを追加",
         "preset_remove_tooltip": "このプリセットを削除",
         "preset_remove_title": "プリセットの削除",
@@ -82,6 +90,7 @@
       "add_preset": "Materilune プリセットの追加",
       "activate_preset": "Materilune プリセットのアクティブ化",
       "deactivate_preset": "Materilune プリセットの非アクティブ化",
+      "update_entries": "Materilune のエントリの更新",
       "rebuild_entries": "Materilune の置換エントリの再生成",
       "repair_reference": "Materilune の Root 参照の修復"
     },

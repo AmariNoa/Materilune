@@ -17,3 +17,9 @@
 #tv-swap-override-components {
     background-color: rgba(0, 0, 0, 0);
 }
+
+/* The status bar always shows the current state, so the row it occupies never reads as an
+   empty gap. Only its colour changes, which keeps the layout still (AGENTS.md 2.4 (7)). */
+.materilune-window__status--warning {
+    background-color: rgb(96, 82, 48);
+}

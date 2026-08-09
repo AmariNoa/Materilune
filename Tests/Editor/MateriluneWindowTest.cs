@@ -359,6 +359,44 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(GetItemCount("lv-swap-root-entries"), Is.EqualTo(2));
         }
 
+        /// <summary>
+        /// Verifies the update offer appears once the target gains a material and clears after
+        /// updating, so it cannot stay on with no way to satisfy it. The status bar reports a
+        /// state in both cases, so the row it occupies is never an empty gap.
+        /// </summary>
+        [Test]
+        public void UpdateIsOfferedForANewMaterialAndClearsAfterUpdating()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var renderer = CreateRenderer("Renderer", target.transform);
+            var first = CreateMaterial(shader);
+            renderer.sharedMaterials = new[] { first };
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            Assert.That(m_window.IsUpdateOfferedForTests(), Is.False);
+            Assert.That(m_window.GetStatusMessageForTests(), Is.Not.Empty);
+
+            var second = CreateMaterial(shader);
+            renderer.sharedMaterials = new[] { first, second };
+            m_window.SetTargetForTests(target);
+
+            Assert.That(m_window.IsUpdateOfferedForTests(), Is.True);
+            var warningMessage = m_window.GetStatusMessageForTests();
+            Assert.That(warningMessage, Is.Not.Empty);
+
+            m_window.UpdateEntriesForTests();
+
+            Assert.That(m_window.IsUpdateOfferedForTests(), Is.False);
+            Assert.That(m_window.GetStatusMessageForTests(), Is.Not.Empty);
+            Assert.That(m_window.GetStatusMessageForTests(), Is.Not.EqualTo(warningMessage));
+            var preset = manager.GetPresets()[0];
+            Assert.That(preset.Swaps, Has.Count.EqualTo(2));
+            Assert.That(preset.Swaps[1].From, Is.EqualTo(second));
+        }
+
         [Test]
         public void PresetAddButtonIsDisabledWhenManagerIsUnresolved()
         {

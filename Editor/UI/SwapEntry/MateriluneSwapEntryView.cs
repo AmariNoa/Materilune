@@ -15,7 +15,15 @@ namespace com.amari_noa.materilune.editor
     {
         private const string UxmlPath = "Packages/com.amari-noa.materilune/Editor/UI/SwapEntry/MateriluneSwapEntryView.uxml";
         private const string UssPath = "Packages/com.amari-noa.materilune/Editor/UI/SwapEntry/MateriluneSwapEntryView.uss";
+        private const string RowClass = "materilune-swap-entry";
 
+        /// <summary>
+        /// Marks a row whose source material is no longer offered by the component that
+        /// holds it. Public so a host can style the state to match its own window.
+        /// </summary>
+        public const string OrphanedClass = "materilune-swap-entry--orphaned";
+
+        private VisualElement m_row;
         private ObjectField m_fromField;
         private ObjectField m_toField;
         private Button m_toPrevious;
@@ -23,6 +31,7 @@ namespace com.amari_noa.materilune.editor
         private SerializedProperty m_swapEntryProperty;
         private MateriluneCandidateMode m_candidateMode;
         private bool m_isBound;
+        private bool m_isOrphaned;
 
         /// <summary>
         /// Creates the UXML factory for this element.
@@ -49,6 +58,7 @@ namespace com.amari_noa.materilune.editor
             visualTree.CloneTree(this);
             styleSheets.Add(styleSheet);
 
+            m_row = this.Q<VisualElement>(className: RowClass);
             m_fromField = this.Q<ObjectField>("from-field");
             m_toField = this.Q<ObjectField>("to-field");
             m_toPrevious = this.Q<Button>("to-previous");
@@ -127,6 +137,11 @@ namespace com.amari_noa.materilune.editor
             m_toField.SetValueWithoutNotify(toProperty.objectReferenceValue);
             m_toField.RegisterValueChangedCallback(OnToFieldValueChanged);
             m_isBound = true;
+            // The materials the owning component offers double as the test for an orphan:
+            // a source that is no longer among them cannot reach the Material Swap, so the
+            // row says so rather than looking like every other row.
+            m_isOrphaned = IsOrphaned(fromProperty.objectReferenceValue as Material, fromCandidates);
+            ApplyOrphanState();
             UpdateControlState();
         }
 
@@ -150,6 +165,8 @@ namespace com.amari_noa.materilune.editor
             m_swapEntryProperty = null;
             m_candidateMode = MateriluneCandidateMode.None;
             m_isBound = false;
+            m_isOrphaned = false;
+            ApplyOrphanState();
             SetControlsEnabled(false);
         }
 
@@ -217,14 +234,51 @@ namespace com.amari_noa.materilune.editor
             m_toNext.clicked += () => StepToCandidate(1);
         }
 
+        private static bool IsOrphaned(Material from, IReadOnlyList<Material> offeredMaterials)
+        {
+            // An empty list means the component never recorded what it offers, so there is
+            // nothing to judge against. The synchronizer skips the same test in that case.
+            if (offeredMaterials == null || offeredMaterials.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var material in offeredMaterials)
+            {
+                if (material != null && material == from)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void ApplyOrphanState()
+        {
+            if (m_row != null)
+            {
+                m_row.EnableInClassList(OrphanedClass, m_isOrphaned);
+            }
+
+            if (m_fromField != null)
+            {
+                m_fromField.tooltip = m_isOrphaned
+                    ? MateriluneL10n.Get(
+                        "materilune.ui.swap_entry.orphan_tooltip",
+                        "This material is no longer used by the target meshes. The replacement is kept but not applied.")
+                    : MateriluneL10n.Get(
+                        "materilune.ui.swap_entry.from_tooltip",
+                        "Material to replace. Generated from the target meshes and shown for reference");
+            }
+        }
+
         private void ApplyLocalizedTexts()
         {
-            m_fromField.tooltip = MateriluneL10n.Get(
-                "materilune.ui.swap_entry.from_tooltip",
-                "Material to replace. Generated from the target meshes and shown for reference");
             m_toField.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.to_tooltip", "Replacement material");
             m_toPrevious.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.previous_tooltip", "Previous candidate");
             m_toNext.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.next_tooltip", "Next candidate");
+            ApplyOrphanState();
         }
 
         private void OnToFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)

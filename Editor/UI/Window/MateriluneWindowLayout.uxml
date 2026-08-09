@@ -15,6 +15,10 @@
                     <ui:Button text="Material Swap" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btn-swap" />
                 </ui:VisualElement>
             </ui:VisualElement>
+            <ui:VisualElement name="elm-status-bar" style="flex-shrink: 0; flex-direction: row; align-items: center; background-color: rgb(66, 66, 66); margin-top: 10px; margin-right: 10px; margin-left: 10px; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 10px;">
+                <ui:Label name="lbl-status-message" style="flex-grow: 1; flex-shrink: 1; min-width: 0; overflow: hidden; -unity-text-align: middle-left;" />
+                <ui:Button name="btn-update" style="flex-shrink: 0; visibility: hidden;" />
+            </ui:VisualElement>
             <ui:VisualElement name="elm-tab-page-material-swap" style="flex-grow: 1; flex-direction: row; justify-content: space-between; min-height: 0;">
                 <ui:VisualElement style="flex-grow: 1; max-width: 15%; min-height: 0; min-width: 15%; background-color: rgb(77, 77, 77); margin-top: 10px; margin-right: 10px; margin-bottom: 10px; margin-left: 10px; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px; width: 15%;">
                     <ui:Label tabindex="-1" text="Preset List" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />

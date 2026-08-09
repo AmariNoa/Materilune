@@ -27,7 +27,8 @@
     },
     "ui": {
       "swap_entry": {
-        "from_tooltip": "Material to replace",
+        "from_tooltip": "Material to replace. Generated from the target meshes and shown for reference",
+        "orphan_tooltip": "This material is no longer used by the target meshes. The replacement is kept but not applied.",
         "to_tooltip": "Replacement material",
         "previous_tooltip": "Previous candidate",
         "next_tooltip": "Next candidate",
@@ -55,6 +56,13 @@
         "title": "Materilune",
         "target_label": "Target",
         "swap_tab": "Material Swap",
+        "status_no_target": "Select the object to work on in the hierarchy.",
+        "status_not_set_up": "Materilune is not set up on this object.",
+        "status_update_required": "The target meshes carry materials that are not listed yet.",
+        "status_summary": "{0} presets, {1} target meshes, {2} of {3} replacements set",
+        "status_summary_orphans": " (orphaned entries: {0})",
+        "update_button": "Update",
+        "update_tooltip": "Rebuild the replacement entries from the target meshes",
         "preset_add_tooltip": "Add preset",
         "preset_remove_tooltip": "Remove this preset",
         "preset_remove_title": "Remove preset",
@@ -82,6 +90,7 @@
       "add_preset": "Add Materilune Preset",
       "activate_preset": "Activate Materilune Preset",
       "deactivate_preset": "Deactivate Materilune Preset",
+      "update_entries": "Update Materilune Entries",
       "rebuild_entries": "Rebuild Materilune Swap Entries",
       "repair_reference": "Repair Materilune Root Reference"
     },

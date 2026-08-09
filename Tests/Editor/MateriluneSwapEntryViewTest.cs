@@ -197,6 +197,42 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(changedCount, Is.EqualTo(0));
         }
 
+        /// <summary>
+        /// Verifies a row whose source material is no longer offered by the owning component is
+        /// marked, so the user can see why that replacement never reaches Material Swap.
+        /// </summary>
+        [Test]
+        public void OrphanedEntryIsMarked()
+        {
+            var offered = CreateMaterial("Offered.mat");
+            var missing = CreateMaterial("Missing.mat");
+            var view = new MateriluneSwapEntryView();
+            var row = view.Q<VisualElement>(className: "materilune-swap-entry");
+            Assert.That(row, Is.Not.Null);
+
+            view.Bind(CreateSwapEntryProperty(missing, null), new[] { offered }, MateriluneCandidateMode.None);
+            Assert.That(row.ClassListContains(MateriluneSwapEntryView.OrphanedClass), Is.True);
+
+            view.Bind(CreateSwapEntryProperty(offered, null), new[] { offered }, MateriluneCandidateMode.None);
+            Assert.That(row.ClassListContains(MateriluneSwapEntryView.OrphanedClass), Is.False);
+        }
+
+        /// <summary>
+        /// Verifies no row is marked when the owning component recorded no materials, which
+        /// matches the synchronizer skipping the orphan test in that case.
+        /// </summary>
+        [Test]
+        public void NoEntryIsMarkedWhenTheComponentOffersNothing()
+        {
+            var material = CreateMaterial("Material.mat");
+            var view = new MateriluneSwapEntryView();
+            var row = view.Q<VisualElement>(className: "materilune-swap-entry");
+
+            view.Bind(CreateSwapEntryProperty(material, null), null, MateriluneCandidateMode.None);
+
+            Assert.That(row.ClassListContains(MateriluneSwapEntryView.OrphanedClass), Is.False);
+        }
+
         [Test]
         public void StepToCandidateMovesForwardAndWrapsInSameDirectory()
         {

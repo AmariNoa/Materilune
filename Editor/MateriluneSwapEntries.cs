@@ -167,6 +167,76 @@ namespace com.amari_noa.materilune.editor
             return false;
         }
 
+        /// <summary>
+        /// Counts the replacement entries a preset and its overrides hold.
+        /// </summary>
+        /// <param name="preset">The preset to inspect.</param>
+        /// <param name="total">Receives the number of entries.</param>
+        /// <param name="assigned">Receives the number of entries that name a replacement.</param>
+        /// <param name="orphaned">
+        /// Receives the number of entries whose source material is no longer offered by the
+        /// component that holds them. The test matches the one the synchronizer applies, so the
+        /// count says exactly how many entries are held back from the Material Swap components.
+        /// </param>
+        internal static void CountEntries(
+            MateriluneSwapRoot preset,
+            out int total,
+            out int assigned,
+            out int orphaned)
+        {
+            total = 0;
+            assigned = 0;
+            orphaned = 0;
+            if (preset == null)
+            {
+                return;
+            }
+
+            CountEntries(preset.AvailableMaterials, preset.Swaps, ref total, ref assigned, ref orphaned);
+            foreach (var operationOverride in preset.GetComponentsInChildren<MateriluneSwapOverride>(true))
+            {
+                if (operationOverride != null)
+                {
+                    CountEntries(
+                        operationOverride.AvailableMaterials,
+                        operationOverride.Swaps,
+                        ref total,
+                        ref assigned,
+                        ref orphaned);
+                }
+            }
+        }
+
+        private static void CountEntries(
+            IList<Material> availableMaterials,
+            IList<MateriluneMaterialSwapEntry> swaps,
+            ref int total,
+            ref int assigned,
+            ref int orphaned)
+        {
+            if (swaps == null)
+            {
+                return;
+            }
+
+            // An empty material list means the component never recorded what it offers, so the
+            // synchronizer skips the orphan test there and this count does the same.
+            var canJudgeOrphans = availableMaterials != null && availableMaterials.Count > 0;
+            foreach (var swap in swaps)
+            {
+                total++;
+                if (swap.To != null)
+                {
+                    assigned++;
+                }
+
+                if (canJudgeOrphans && !ContainsMaterial(availableMaterials, swap.From))
+                {
+                    orphaned++;
+                }
+            }
+        }
+
         private static bool RebuildEntries(
             UnityEngine.Object owner,
             IList<Material> availableMaterials,

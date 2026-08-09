@@ -21,3 +21,10 @@
     padding-right: 0;
 }
 
+
+/* A row whose source material is no longer offered by the target meshes. The replacement is
+   kept so it survives the material coming back, but it is not applied, so the row is marked
+   rather than removed. Only the colour changes, which keeps the layout still. */
+.materilune-swap-entry--orphaned {
+    background-color: rgb(96, 82, 48);
+}

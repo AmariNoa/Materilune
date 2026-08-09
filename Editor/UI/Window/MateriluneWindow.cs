@@ -19,6 +19,7 @@ namespace com.amari_noa.materilune.editor
         private const string PresetRowUxmlPath = "Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindowPresetRow.uxml";
         private const string SwapEntryRowUxmlPath = "Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindowSwapEntryRow.uxml";
         private const string ActivePresetClass = "materilune-window__preset--active";
+        private const string StatusWarningClass = "materilune-window__status--warning";
         private const float MinimumWindowWidth = 720f;
         private const float MinimumWindowHeight = 360f;
         private const float DefaultWindowWidth = 1000f;
@@ -42,6 +43,9 @@ namespace com.amari_noa.materilune.editor
         private DropdownField m_languageDropdown;
         private Button m_swapButton;
         private Button m_presetAddButton;
+        private VisualElement m_statusBar;
+        private Label m_statusMessage;
+        private Button m_updateButton;
         private ListView m_presetList;
         private ListView m_rootSwapList;
         private TreeView m_overrideTree;
@@ -223,6 +227,10 @@ namespace com.amari_noa.materilune.editor
             m_presetList.selectionChanged += OnPresetSelectionChanged;
             m_overrideTree.selectionChanged += OnTreeSelectionChanged;
             m_presetAddButton.clicked += OnPresetAddClicked;
+            if (m_updateButton != null)
+            {
+                m_updateButton.clicked += OnUpdateClicked;
+            }
 
             m_uiReady = true;
             ApplyLocalizedTexts();
@@ -235,6 +243,12 @@ namespace com.amari_noa.materilune.editor
             m_languageDropdown = rootVisualElement.Q<DropdownField>("dd-language");
             m_swapButton = rootVisualElement.Q<Button>("btn-swap");
             m_presetAddButton = rootVisualElement.Q<Button>("btn-preset-add");
+
+            // The status bar is optional so that a layout edit that drops it only loses the
+            // status line instead of stopping the whole window from loading.
+            m_statusBar = rootVisualElement.Q<VisualElement>("elm-status-bar");
+            m_statusMessage = rootVisualElement.Q<Label>("lbl-status-message");
+            m_updateButton = rootVisualElement.Q<Button>("btn-update");
             m_presetList = rootVisualElement.Q<ListView>("lv-preset-list");
             m_rootSwapList = rootVisualElement.Q<ListView>("lv-swap-root-entries");
             m_overrideTree = rootVisualElement.Q<TreeView>("tv-swap-override-components");
@@ -264,6 +278,9 @@ namespace com.amari_noa.materilune.editor
             m_languageDropdown = null;
             m_swapButton = null;
             m_presetAddButton = null;
+            m_statusBar = null;
+            m_statusMessage = null;
+            m_updateButton = null;
             m_presetList = null;
             m_rootSwapList = null;
             m_overrideTree = null;
@@ -294,6 +311,11 @@ namespace com.amari_noa.materilune.editor
             if (m_presetAddButton != null)
             {
                 m_presetAddButton.clicked -= OnPresetAddClicked;
+            }
+
+            if (m_updateButton != null)
+            {
+                m_updateButton.clicked -= OnUpdateClicked;
             }
         }
 
@@ -507,7 +529,146 @@ namespace com.amari_noa.materilune.editor
             {
                 m_isRebuilding = false;
                 UpdateAddButtonStates();
+                RefreshStatusBar();
             }
+        }
+
+        /// <summary>
+        /// Reports what the window is looking at and whether the entries still match the target.
+        /// </summary>
+        /// <remarks>
+        /// The bar always says something, so the space it occupies never reads as an empty gap,
+        /// and it never changes the layout: the row keeps its place and the update button keeps
+        /// its space while hidden (AGENTS.md 2.4 (7)).
+        /// </remarks>
+        private void RefreshStatusBar()
+        {
+            if (m_statusBar == null)
+            {
+                return;
+            }
+
+            var manager = ResolvedManager;
+            var target = manager == null ? null : GetTargetObject(manager);
+            var needsUpdate = target != null && MateriluneSwapEntries.NeedsUpdate(manager);
+
+            if (m_statusMessage != null)
+            {
+                m_statusMessage.text = GetStatusMessage(manager, target, needsUpdate);
+            }
+
+            m_statusBar.EnableInClassList(StatusWarningClass, needsUpdate);
+            if (m_updateButton != null)
+            {
+                m_updateButton.style.visibility = needsUpdate
+                    ? Visibility.Visible
+                    : Visibility.Hidden;
+                m_updateButton.SetEnabled(needsUpdate);
+            }
+        }
+
+        private string GetStatusMessage(MateriluneSwap manager, GameObject target, bool needsUpdate)
+        {
+            if (GetCandidate() == null)
+            {
+                return MateriluneL10n.Get(
+                    "materilune.ui.window.status_no_target",
+                    "Select the object to work on in the hierarchy.");
+            }
+
+            if (manager == null || target == null)
+            {
+                return MateriluneL10n.Get(
+                    "materilune.ui.window.status_not_set_up",
+                    "Materilune is not set up on this object.");
+            }
+
+            // The warning replaces the summary rather than joining it. It is the one state that
+            // asks for an action, and a single line has to stay readable.
+            if (needsUpdate)
+            {
+                return MateriluneL10n.Get(
+                    "materilune.ui.window.status_update_required",
+                    "The target meshes carry materials that are not listed yet.");
+            }
+
+            return BuildSummary(manager, target);
+        }
+
+        private string BuildSummary(MateriluneSwap manager, GameObject target)
+        {
+            var presets = manager.GetPresets();
+            var rendererCount = MateriluneSetupService.CollectTargetRenderers(target).Count;
+            int total;
+            int assigned;
+            int orphaned;
+            MateriluneSwapEntries.CountEntries(m_activePreset, out total, out assigned, out orphaned);
+
+            var summary = string.Format(
+                MateriluneL10n.Get(
+                    "materilune.ui.window.status_summary",
+                    "{0} presets, {1} target meshes, {2} of {3} replacements set"),
+                presets == null ? 0 : presets.Count,
+                rendererCount,
+                assigned,
+                total);
+            if (orphaned == 0)
+            {
+                return summary;
+            }
+
+            return summary + string.Format(
+                MateriluneL10n.Get(
+                    "materilune.ui.window.status_summary_orphans",
+                    " (orphaned entries: {0})"),
+                orphaned);
+        }
+
+        private void OnUpdateClicked()
+        {
+            var manager = ResolvedManager;
+            var target = manager == null ? null : GetTargetObject(manager);
+            if (target == null)
+            {
+                Rebuild();
+                return;
+            }
+
+            // Setting up again is what brings the recorded material lists back in line with the
+            // meshes, and it creates the operation objects a newly added mesh still lacks. The
+            // orphan action is Keep so the run cannot delete anything without being asked.
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName(MateriluneL10n.Get(
+                "materilune.undo.update_entries",
+                "Update Materilune Entries"));
+            try
+            {
+                MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+                MateriluneSwapSynchronizer.Sync(manager);
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            Rebuild();
+        }
+
+        internal void UpdateEntriesForTests()
+        {
+            OnUpdateClicked();
+        }
+
+        internal bool IsUpdateOfferedForTests()
+        {
+            return m_updateButton != null
+                && m_updateButton.style.visibility.value == Visibility.Visible;
+        }
+
+        internal string GetStatusMessageForTests()
+        {
+            return m_statusMessage == null ? null : m_statusMessage.text;
         }
 
         private GameObject GetCandidate()
@@ -1479,6 +1640,16 @@ namespace com.amari_noa.materilune.editor
                     "Add preset");
             }
 
+            if (m_updateButton != null)
+            {
+                m_updateButton.text = MateriluneL10n.Get(
+                    "materilune.ui.window.update_button",
+                    "Update");
+                m_updateButton.tooltip = MateriluneL10n.Get(
+                    "materilune.ui.window.update_tooltip",
+                    "Rebuild the replacement entries from the target meshes");
+            }
+
             foreach (var binding in m_presetRowBindings.Values)
             {
                 ApplyPresetRowLocalizedText(binding.RemoveButton);
@@ -1513,6 +1684,7 @@ namespace com.amari_noa.materilune.editor
             }
 
             UpdateAddButtonStates();
+            RefreshStatusBar();
         }
 
         private static void ApplyPresetRowLocalizedText(Button removeButton)
