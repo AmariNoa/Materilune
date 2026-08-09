@@ -42,8 +42,6 @@ namespace com.amari_noa.materilune.editor
         private DropdownField m_languageDropdown;
         private Button m_swapButton;
         private Button m_presetAddButton;
-        private Button m_rootEntryAddButton;
-        private Button m_overrideEntryAddButton;
         private ListView m_presetList;
         private ListView m_rootSwapList;
         private TreeView m_overrideTree;
@@ -225,8 +223,6 @@ namespace com.amari_noa.materilune.editor
             m_presetList.selectionChanged += OnPresetSelectionChanged;
             m_overrideTree.selectionChanged += OnTreeSelectionChanged;
             m_presetAddButton.clicked += OnPresetAddClicked;
-            m_rootEntryAddButton.clicked += OnRootEntryAddClicked;
-            m_overrideEntryAddButton.clicked += OnOverrideEntryAddClicked;
 
             m_uiReady = true;
             ApplyLocalizedTexts();
@@ -239,8 +235,6 @@ namespace com.amari_noa.materilune.editor
             m_languageDropdown = rootVisualElement.Q<DropdownField>("dd-language");
             m_swapButton = rootVisualElement.Q<Button>("btn-swap");
             m_presetAddButton = rootVisualElement.Q<Button>("btn-preset-add");
-            m_rootEntryAddButton = rootVisualElement.Q<Button>("btn-swap-root-entry-add");
-            m_overrideEntryAddButton = rootVisualElement.Q<Button>("btn-swap-override-entry-add");
             m_presetList = rootVisualElement.Q<ListView>("lv-preset-list");
             m_rootSwapList = rootVisualElement.Q<ListView>("lv-swap-root-entries");
             m_overrideTree = rootVisualElement.Q<TreeView>("tv-swap-override-components");
@@ -258,8 +252,6 @@ namespace com.amari_noa.materilune.editor
                 && m_languageDropdown != null
                 && m_swapButton != null
                 && m_presetAddButton != null
-                && m_rootEntryAddButton != null
-                && m_overrideEntryAddButton != null
                 && m_presetList != null
                 && m_rootSwapList != null
                 && m_overrideTree != null
@@ -272,8 +264,6 @@ namespace com.amari_noa.materilune.editor
             m_languageDropdown = null;
             m_swapButton = null;
             m_presetAddButton = null;
-            m_rootEntryAddButton = null;
-            m_overrideEntryAddButton = null;
             m_presetList = null;
             m_rootSwapList = null;
             m_overrideTree = null;
@@ -304,16 +294,6 @@ namespace com.amari_noa.materilune.editor
             if (m_presetAddButton != null)
             {
                 m_presetAddButton.clicked -= OnPresetAddClicked;
-            }
-
-            if (m_rootEntryAddButton != null)
-            {
-                m_rootEntryAddButton.clicked -= OnRootEntryAddClicked;
-            }
-
-            if (m_overrideEntryAddButton != null)
-            {
-                m_overrideEntryAddButton.clicked -= OnOverrideEntryAddClicked;
             }
         }
 
@@ -879,71 +859,6 @@ namespace com.amari_noa.materilune.editor
             Rebuild();
         }
 
-        private void OnRootEntryAddClicked()
-        {
-            AddSwapEntry(m_rootSerializedObject);
-        }
-
-        private void OnOverrideEntryAddClicked()
-        {
-            AddSwapEntry(m_overrideSerializedObject);
-        }
-
-        private void AddSwapEntry(SerializedObject serializedObject)
-        {
-            var manager = ResolvedManager;
-            if (manager == null || serializedObject == null || serializedObject.targetObject == null)
-            {
-                UpdateAddButtonStates();
-                return;
-            }
-
-            serializedObject.Update();
-            var swapsProperty = serializedObject.FindProperty("m_swaps");
-            if (swapsProperty == null || !swapsProperty.isArray)
-            {
-                UpdateAddButtonStates();
-                return;
-            }
-
-            Undo.IncrementCurrentGroup();
-            var undoGroup = Undo.GetCurrentGroup();
-            var changed = false;
-            try
-            {
-                var newIndex = swapsProperty.arraySize;
-                swapsProperty.arraySize = newIndex + 1;
-                var newEntry = swapsProperty.GetArrayElementAtIndex(newIndex);
-                var fromProperty = newEntry.FindPropertyRelative("m_from");
-                var toProperty = newEntry.FindPropertyRelative("m_to");
-                if (fromProperty != null)
-                {
-                    fromProperty.objectReferenceValue = null;
-                }
-
-                if (toProperty != null)
-                {
-                    toProperty.objectReferenceValue = null;
-                }
-
-                changed = serializedObject.ApplyModifiedProperties();
-                if (changed)
-                {
-                    MarkObjectDirty(serializedObject.targetObject);
-                    MateriluneSwapSynchronizer.Sync(manager);
-                }
-            }
-            finally
-            {
-                Undo.CollapseUndoOperations(undoGroup);
-            }
-
-            if (changed)
-            {
-                Rebuild();
-            }
-        }
-
         private void RemovePreset(MateriluneSwapRoot preset)
         {
             var manager = ResolvedManager;
@@ -996,60 +911,9 @@ namespace com.amari_noa.materilune.editor
             Rebuild();
         }
 
-        private void RemoveSwapEntry(SerializedObject serializedObject, int index)
-        {
-            var manager = ResolvedManager;
-            if (manager == null || serializedObject == null || serializedObject.targetObject == null)
-            {
-                Rebuild();
-                return;
-            }
-
-            serializedObject.Update();
-            var swapsProperty = serializedObject.FindProperty("m_swaps");
-            if (swapsProperty == null || !swapsProperty.isArray
-                || index < 0 || index >= swapsProperty.arraySize)
-            {
-                return;
-            }
-
-            Undo.IncrementCurrentGroup();
-            var undoGroup = Undo.GetCurrentGroup();
-            var changed = false;
-            try
-            {
-                swapsProperty.DeleteArrayElementAtIndex(index);
-                changed = serializedObject.ApplyModifiedProperties();
-                if (changed)
-                {
-                    MarkObjectDirty(serializedObject.targetObject);
-                    MateriluneSwapSynchronizer.Sync(manager);
-                }
-            }
-            finally
-            {
-                Undo.CollapseUndoOperations(undoGroup);
-            }
-
-            if (changed)
-            {
-                Rebuild();
-            }
-        }
-
         internal void AddPresetForTests()
         {
             OnPresetAddClicked();
-        }
-
-        internal void AddRootEntryForTests()
-        {
-            OnRootEntryAddClicked();
-        }
-
-        internal void AddOverrideEntryForTests()
-        {
-            OnOverrideEntryAddClicked();
         }
 
         /// <summary>
@@ -1068,11 +932,6 @@ namespace com.amari_noa.materilune.editor
 
             BindPresetItem(row, index);
             return row;
-        }
-
-        internal void RemoveRootEntryForTests(int index)
-        {
-            RemoveSwapEntry(m_rootSerializedObject, index);
         }
 
         private void BindRootSwapItem(VisualElement element, int index)
@@ -1110,15 +969,12 @@ namespace com.amari_noa.materilune.editor
         {
             ClearSwapRowBinding(element);
             var entryView = element == null ? null : element.Q<MateriluneSwapEntryView>();
-            var removeButton = element == null ? null : element.Q<Button>("btn-swap-entry-remove");
-            if (entryView == null || removeButton == null)
+            if (entryView == null)
             {
                 return;
             }
 
             entryView.Unbind();
-            removeButton.text = "-";
-            removeButton.SetEnabled(false);
             if (serializedObject == null || serializedObject.targetObject == null)
             {
                 return;
@@ -1132,18 +988,8 @@ namespace com.amari_noa.materilune.editor
             }
 
             entryView.Bind(swapsProperty.GetArrayElementAtIndex(index), fromCandidates, candidateMode);
-            var capturedSerializedObject = serializedObject;
-            var capturedIndex = index;
-            Action removeAction = () => RemoveSwapEntry(capturedSerializedObject, capturedIndex);
             entryView.Changed += changedAction;
-            removeButton.clicked += removeAction;
-            removeButton.SetEnabled(true);
-            ApplySwapRowLocalizedText(removeButton);
-            m_swapRowBindings[element] = new SwapRowBinding(
-                entryView,
-                removeButton,
-                changedAction,
-                removeAction);
+            m_swapRowBindings[element] = new SwapRowBinding(entryView, changedAction);
         }
 
         private void UnbindSwapItem(VisualElement element, int index)
@@ -1180,9 +1026,7 @@ namespace com.amari_noa.materilune.editor
             if (m_swapRowBindings.TryGetValue(element, out binding))
             {
                 binding.EntryView.Changed -= binding.ChangedAction;
-                binding.RemoveButton.clicked -= binding.RemoveAction;
                 binding.EntryView.Unbind();
-                binding.RemoveButton.SetEnabled(false);
                 m_swapRowBindings.Remove(element);
                 return;
             }
@@ -1191,12 +1035,6 @@ namespace com.amari_noa.materilune.editor
             if (entryView != null)
             {
                 entryView.Unbind();
-            }
-
-            var removeButton = element.Q<Button>("btn-swap-entry-remove");
-            if (removeButton != null)
-            {
-                removeButton.SetEnabled(false);
             }
         }
 
@@ -1215,9 +1053,7 @@ namespace com.amari_noa.materilune.editor
             foreach (var binding in new List<SwapRowBinding>(m_swapRowBindings.Values))
             {
                 binding.EntryView.Changed -= binding.ChangedAction;
-                binding.RemoveButton.clicked -= binding.RemoveAction;
                 binding.EntryView.Unbind();
-                binding.RemoveButton.SetEnabled(false);
             }
 
             m_swapRowBindings.Clear();
@@ -1595,35 +1431,6 @@ namespace com.amari_noa.materilune.editor
                 m_presetAddButton.SetEnabled(manager != null);
             }
 
-            var canEditRoot = manager != null
-                && m_activePreset != null
-                && m_activePreset.gameObject != null
-                && CanEditSerializedSwaps(m_rootSerializedObject);
-            if (m_rootEntryAddButton != null)
-            {
-                m_rootEntryAddButton.SetEnabled(canEditRoot);
-            }
-
-            var canEditOverride = manager != null
-                && m_activePreset != null
-                && m_activePreset.gameObject != null
-                && m_selectedRenderer != null
-                && CanEditSerializedSwaps(m_overrideSerializedObject);
-            if (m_overrideEntryAddButton != null)
-            {
-                m_overrideEntryAddButton.SetEnabled(canEditOverride);
-            }
-        }
-
-        private static bool CanEditSerializedSwaps(SerializedObject serializedObject)
-        {
-            if (serializedObject == null || serializedObject.targetObject == null)
-            {
-                return false;
-            }
-
-            var swapsProperty = serializedObject.FindProperty("m_swaps");
-            return swapsProperty != null && swapsProperty.isArray;
         }
 
         private static void ClearListView(ListView listView, System.Collections.IList emptyItems)
@@ -1672,30 +1479,9 @@ namespace com.amari_noa.materilune.editor
                     "Add preset");
             }
 
-            if (m_rootEntryAddButton != null)
-            {
-                m_rootEntryAddButton.text = "+";
-                m_rootEntryAddButton.tooltip = MateriluneL10n.Get(
-                    "materilune.ui.window.entry_add_tooltip",
-                    "Add replacement entry");
-            }
-
-            if (m_overrideEntryAddButton != null)
-            {
-                m_overrideEntryAddButton.text = "+";
-                m_overrideEntryAddButton.tooltip = MateriluneL10n.Get(
-                    "materilune.ui.window.entry_add_tooltip",
-                    "Add replacement entry");
-            }
-
             foreach (var binding in m_presetRowBindings.Values)
             {
                 ApplyPresetRowLocalizedText(binding.RemoveButton);
-            }
-
-            foreach (var binding in m_swapRowBindings.Values)
-            {
-                ApplySwapRowLocalizedText(binding.RemoveButton);
             }
 
             if (m_rootHeader != null)
@@ -1742,19 +1528,6 @@ namespace com.amari_noa.materilune.editor
                 "Remove this preset");
         }
 
-        private static void ApplySwapRowLocalizedText(Button removeButton)
-        {
-            if (removeButton == null)
-            {
-                return;
-            }
-
-            removeButton.text = "-";
-            removeButton.tooltip = MateriluneL10n.Get(
-                "materilune.ui.window.entry_remove_tooltip",
-                "Remove this entry");
-        }
-
         private void RefreshLanguageDropdown()
         {
             if (m_languageDropdown == null)
@@ -1785,20 +1558,12 @@ namespace com.amari_noa.materilune.editor
         private sealed class SwapRowBinding
         {
             internal readonly MateriluneSwapEntryView EntryView;
-            internal readonly Button RemoveButton;
             internal readonly Action ChangedAction;
-            internal readonly Action RemoveAction;
 
-            internal SwapRowBinding(
-                MateriluneSwapEntryView entryView,
-                Button removeButton,
-                Action changedAction,
-                Action removeAction)
+            internal SwapRowBinding(MateriluneSwapEntryView entryView, Action changedAction)
             {
                 EntryView = entryView;
-                RemoveButton = removeButton;
                 ChangedAction = changedAction;
-                RemoveAction = removeAction;
             }
         }
 

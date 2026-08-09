@@ -1,6 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
     <ui:VisualElement name="elm-swap-entry-row" style="flex-grow: 1; flex-direction: row; align-items: center; min-width: 0;">
         <ui:VisualElement name="elm-swap-entry-slot" style="flex-grow: 1; flex-shrink: 1; min-width: 0;" />
-        <ui:Button name="btn-swap-entry-remove" style="flex-shrink: 0; width: 20px; min-width: 20px; padding-left: 0; padding-right: 0; margin-left: 2px; margin-right: 0;" />
     </ui:VisualElement>
 </ui:UXML>

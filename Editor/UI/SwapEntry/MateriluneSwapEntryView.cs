@@ -17,12 +17,10 @@ namespace com.amari_noa.materilune.editor
         private const string UssPath = "Packages/com.amari-noa.materilune/Editor/UI/SwapEntry/MateriluneSwapEntryView.uss";
 
         private ObjectField m_fromField;
-        private Button m_fromPicker;
         private ObjectField m_toField;
         private Button m_toPrevious;
         private Button m_toNext;
         private SerializedProperty m_swapEntryProperty;
-        private IReadOnlyList<Material> m_fromCandidates;
         private MateriluneCandidateMode m_candidateMode;
         private bool m_isBound;
 
@@ -52,11 +50,10 @@ namespace com.amari_noa.materilune.editor
             styleSheets.Add(styleSheet);
 
             m_fromField = this.Q<ObjectField>("from-field");
-            m_fromPicker = this.Q<Button>("from-picker");
             m_toField = this.Q<ObjectField>("to-field");
             m_toPrevious = this.Q<Button>("to-previous");
             m_toNext = this.Q<Button>("to-next");
-            if (m_fromField == null || m_fromPicker == null || m_toField == null || m_toPrevious == null || m_toNext == null)
+            if (m_fromField == null || m_toField == null || m_toPrevious == null || m_toNext == null)
             {
                 Debug.LogError(MateriluneL10n.Get(
                     "materilune.ui.swap_entry.missing_element_error",
@@ -94,7 +91,10 @@ namespace com.amari_noa.materilune.editor
         /// Binds this view to a material replacement entry.
         /// </summary>
         /// <param name="swapEntryProperty">The material replacement entry property.</param>
-        /// <param name="fromCandidates">Materials that can be selected as the replacement source.</param>
+        /// <param name="fromCandidates">
+        /// Ignored. The replacement source is generated from the target meshes and cannot be
+        /// chosen, so no candidate list is needed. The parameter stays for the public contract.
+        /// </param>
         /// <param name="candidateMode">The mode used to discover replacement candidates.</param>
         public void Bind(
             SerializedProperty swapEntryProperty,
@@ -108,7 +108,6 @@ namespace com.amari_noa.materilune.editor
             }
 
             m_swapEntryProperty = swapEntryProperty;
-            m_fromCandidates = fromCandidates;
             m_candidateMode = candidateMode;
 
             var fromProperty = m_swapEntryProperty.FindPropertyRelative("m_from");
@@ -126,7 +125,6 @@ namespace com.amari_noa.materilune.editor
             // keeps change events limited to actual user interaction.
             m_fromField.SetValueWithoutNotify(fromProperty.objectReferenceValue);
             m_toField.SetValueWithoutNotify(toProperty.objectReferenceValue);
-            m_fromField.RegisterValueChangedCallback(OnFromFieldValueChanged);
             m_toField.RegisterValueChangedCallback(OnToFieldValueChanged);
             m_isBound = true;
             UpdateControlState();
@@ -144,46 +142,15 @@ namespace com.amari_noa.materilune.editor
 
             if (m_isBound)
             {
-                m_fromField.UnregisterValueChangedCallback(OnFromFieldValueChanged);
                 m_toField.UnregisterValueChangedCallback(OnToFieldValueChanged);
                 m_fromField.SetValueWithoutNotify(null);
                 m_toField.SetValueWithoutNotify(null);
             }
 
             m_swapEntryProperty = null;
-            m_fromCandidates = null;
             m_candidateMode = MateriluneCandidateMode.None;
             m_isBound = false;
             SetControlsEnabled(false);
-        }
-
-        /// <summary>
-        /// Applies a source material selected from the source candidate menu.
-        /// </summary>
-        /// <param name="material">The selected source material.</param>
-        internal void ApplyFromCandidate(Material material)
-        {
-            if (!CanEdit() || material == null)
-            {
-                return;
-            }
-
-            var serializedObject = m_swapEntryProperty.serializedObject;
-            serializedObject.Update();
-            var fromProperty = m_swapEntryProperty.FindPropertyRelative("m_from");
-            var toProperty = m_swapEntryProperty.FindPropertyRelative("m_to");
-            if (fromProperty == null || toProperty == null)
-            {
-                return;
-            }
-
-            fromProperty.objectReferenceValue = material;
-            if (toProperty.objectReferenceValue == null)
-            {
-                toProperty.objectReferenceValue = material;
-            }
-
-            ApplyChanges(serializedObject);
         }
 
         /// <summary>
@@ -244,50 +211,20 @@ namespace com.amari_noa.materilune.editor
         {
             // Plain glyphs rather than built-in icon USS variables, whose names are not a stable
             // contract across Unity versions.
-            m_fromPicker.text = "+";
             m_toPrevious.text = "<";
             m_toNext.text = ">";
-            m_fromPicker.clicked += ShowFromCandidates;
             m_toPrevious.clicked += () => StepToCandidate(-1);
             m_toNext.clicked += () => StepToCandidate(1);
         }
 
         private void ApplyLocalizedTexts()
         {
-            m_fromField.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.from_tooltip", "Material to replace");
+            m_fromField.tooltip = MateriluneL10n.Get(
+                "materilune.ui.swap_entry.from_tooltip",
+                "Material to replace. Generated from the target meshes and shown for reference");
             m_toField.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.to_tooltip", "Replacement material");
-            m_fromPicker.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.pick_from_tooltip", "Choose from materials in use");
             m_toPrevious.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.previous_tooltip", "Previous candidate");
             m_toNext.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.next_tooltip", "Next candidate");
-        }
-
-        private void ShowFromCandidates()
-        {
-            if (!CanEdit() || m_fromCandidates == null)
-            {
-                return;
-            }
-
-            var menu = new GenericDropdownMenu();
-            var seen = new HashSet<Material>();
-            var current = GetCurrentFrom();
-            foreach (var material in m_fromCandidates)
-            {
-                if (material == null || !seen.Add(material))
-                {
-                    continue;
-                }
-
-                var candidate = material;
-                menu.AddItem(candidate.name, candidate == current, () => ApplyFromCandidate(candidate));
-            }
-
-            menu.DropDown(m_fromPicker.worldBound, m_fromPicker);
-        }
-
-        private void OnFromFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)
-        {
-            ApplyFieldValue("m_from", changeEvent.newValue as Material);
         }
 
         private void OnToFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)
@@ -357,9 +294,10 @@ namespace com.amari_noa.materilune.editor
                 return;
             }
 
-            m_fromField.SetEnabled(true);
+            // The replacement source comes from the target meshes and is shown for reference
+            // only, so it stays disabled even while the rest of the row is editable.
+            m_fromField.SetEnabled(false);
             m_toField.SetEnabled(true);
-            m_fromPicker.SetEnabled(m_fromCandidates != null);
 
             var current = GetCurrentTo() ?? GetCurrentFrom();
             var canStep = m_candidateMode != MateriluneCandidateMode.None
@@ -375,9 +313,8 @@ namespace com.amari_noa.materilune.editor
                 return;
             }
 
-            m_fromField.SetEnabled(enabled);
+            m_fromField.SetEnabled(false);
             m_toField.SetEnabled(enabled);
-            m_fromPicker.SetEnabled(enabled);
             m_toPrevious.SetEnabled(enabled);
             m_toNext.SetEnabled(enabled);
         }
@@ -418,7 +355,6 @@ namespace com.amari_noa.materilune.editor
         private bool HasControls()
         {
             return m_fromField != null
-                && m_fromPicker != null
                 && m_toField != null
                 && m_toPrevious != null
                 && m_toNext != null;

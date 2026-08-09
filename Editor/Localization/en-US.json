@@ -29,7 +29,6 @@
       "swap_entry": {
         "from_tooltip": "Material to replace",
         "to_tooltip": "Replacement material",
-        "pick_from_tooltip": "Choose from materials in use",
         "previous_tooltip": "Previous candidate",
         "next_tooltip": "Next candidate",
         "load_error": "Materilune could not load the material swap entry UI assets.",
@@ -60,8 +59,6 @@
         "preset_remove_tooltip": "Remove this preset",
         "preset_remove_title": "Remove preset",
         "preset_remove_message": "Remove this preset and all of its replacement settings?",
-        "entry_add_tooltip": "Add replacement entry",
-        "entry_remove_tooltip": "Remove this entry",
         "lock_tooltip": "Keep the current target when the selection changes",
         "preset_header": "Presets",
         "root_header": "Preset-wide replacements",
@@ -85,6 +82,7 @@
       "add_preset": "Add Materilune Preset",
       "activate_preset": "Activate Materilune Preset",
       "deactivate_preset": "Deactivate Materilune Preset",
+      "rebuild_entries": "Rebuild Materilune Swap Entries",
       "repair_reference": "Repair Materilune Root Reference"
     },
     "watcher": {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using com.amari_noa.materilune.runtime;
 using nadena.dev.modular_avatar.core;
 using UnityEditor;
+using UnityEngine;
 
 namespace com.amari_noa.materilune.editor
 {
@@ -78,7 +79,7 @@ namespace com.amari_noa.materilune.editor
             var rootMaterialSwap = root.GetComponent<ModularAvatarMaterialSwap>();
             if (rootMaterialSwap != null)
             {
-                var rootSwaps = CreateSwaps(root.Swaps);
+                var rootSwaps = CreateSwaps(root.Swaps, root.AvailableMaterials);
                 if (!HasSameSwaps(rootMaterialSwap.Swaps, rootSwaps))
                 {
                     Undo.RecordObject(rootMaterialSwap, UndoGroupName);
@@ -102,7 +103,7 @@ namespace com.amari_noa.materilune.editor
                     continue;
                 }
 
-                var swaps = CreateSwaps(operationOverride.Swaps);
+                var swaps = CreateSwaps(operationOverride.Swaps, operationOverride.AvailableMaterials);
 
                 if (HasSameSwaps(materialSwap.Swaps, swaps))
                 {
@@ -119,7 +120,9 @@ namespace com.amari_noa.materilune.editor
             return changedCount;
         }
 
-        private static List<MatSwap> CreateSwaps(IList<MateriluneMaterialSwapEntry> source)
+        private static List<MatSwap> CreateSwaps(
+            IList<MateriluneMaterialSwapEntry> source,
+            IList<Material> availableMaterials)
         {
             var swaps = new List<MatSwap>();
             if (source == null)
@@ -129,6 +132,13 @@ namespace com.amari_noa.materilune.editor
 
             foreach (var sourceSwap in source)
             {
+                if (sourceSwap.From == null || sourceSwap.To == null ||
+                    (availableMaterials != null && availableMaterials.Count > 0 &&
+                     !availableMaterials.Contains(sourceSwap.From)))
+                {
+                    continue;
+                }
+
                 swaps.Add(new MatSwap
                 {
                     From = sourceSwap.From,

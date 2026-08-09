@@ -334,78 +334,12 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(GetItemCount("lv-preset-list"), Is.EqualTo(initialCount + 1));
         }
 
-        [Test]
-        public void RootEntryAddButtonAddsEmptyEntry()
-        {
-            var target = CreateTarget();
-            CreateRenderer("Renderer", target.transform);
-            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            var preset = manager.GetPresets()[0];
-            m_window = MateriluneWindow.OpenForTests();
-            m_window.SetTargetForTests(target);
-            var initialCount = preset.Swaps.Count;
-
-            AssertButtonIsClickable("btn-swap-root-entry-add");
-            m_window.AddRootEntryForTests();
-
-            Assert.That(preset.Swaps, Has.Count.EqualTo(initialCount + 1));
-            Assert.That(preset.Swaps[initialCount].From, Is.Null);
-            Assert.That(preset.Swaps[initialCount].To, Is.Null);
-        }
-
-        [Test]
-        public void OverrideEntryAddButtonAddsEmptyEntryForSelectedMesh()
-        {
-            var target = CreateTarget();
-            var renderer = CreateRenderer("Renderer", target.transform);
-            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            var preset = manager.GetPresets()[0];
-            var operationOverride = FindOverride(preset, renderer);
-            m_window = MateriluneWindow.OpenForTests();
-            m_window.SetTargetForTests(target);
-            m_window.rootVisualElement.Q<TreeView>("tv-swap-override-components")
-                .SetSelectionById(renderer.transform.GetInstanceID());
-            var initialCount = operationOverride.Swaps.Count;
-
-            AssertButtonIsClickable("btn-swap-override-entry-add");
-            m_window.AddOverrideEntryForTests();
-
-            Assert.That(operationOverride.Swaps, Has.Count.EqualTo(initialCount + 1));
-            Assert.That(operationOverride.Swaps[initialCount].From, Is.Null);
-            Assert.That(operationOverride.Swaps[initialCount].To, Is.Null);
-        }
-
-        [Test]
-        public void EntryAdditionIsRevertedByOneUndo()
-        {
-            var target = CreateTarget();
-            CreateRenderer("Renderer", target.transform);
-            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
-            var preset = manager.GetPresets()[0];
-            m_window = MateriluneWindow.OpenForTests();
-            m_window.SetTargetForTests(target);
-            var initialCount = preset.Swaps.Count;
-            Undo.ClearAll();
-
-            m_window.AddRootEntryForTests();
-            Assert.That(preset.Swaps, Has.Count.EqualTo(initialCount + 1));
-
-            Undo.FlushUndoRecordObjects();
-            MateriluneInspectorIsolation.PerformUndo();
-
-            Assert.That(preset.Swaps, Has.Count.EqualTo(initialCount));
-
-            MateriluneInspectorIsolation.PerformRedo();
-
-            Assert.That(preset.Swaps, Has.Count.EqualTo(initialCount + 1));
-        }
-
         /// <summary>
-        /// Verifies removing an entry drops the right one, keeps the rest, and reaches the
-        /// Material Swap component, and that one undo brings it back.
+        /// Verifies the preset list shows one row per material assigned to the target meshes.
+        /// Entries come from those materials rather than from a manual addition.
         /// </summary>
         [Test]
-        public void RemovingAnEntryKeepsTheOthersAndSyncs()
+        public void RootEntryListShowsOneRowPerTargetMaterial()
         {
             var shader = GetShader();
             var target = CreateTarget();
@@ -415,43 +349,24 @@ namespace com.amari_noa.materilune.tests.editor
             renderer.sharedMaterials = new[] { first, second };
             var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
             var preset = manager.GetPresets()[0];
-            var firstReplacement = CreateMaterial(shader);
-            var secondReplacement = CreateMaterial(shader);
-            preset.Swaps.Add(new MateriluneMaterialSwapEntry(first, firstReplacement));
-            preset.Swaps.Add(new MateriluneMaterialSwapEntry(second, secondReplacement));
             m_window = MateriluneWindow.OpenForTests();
             m_window.SetTargetForTests(target);
-            MateriluneInspectorIsolation.DeselectAll();
-            Undo.ClearAll();
-
-            m_window.RemoveRootEntryForTests(0);
-
-            Assert.That(preset.Swaps, Has.Count.EqualTo(1));
-            Assert.That(preset.Swaps[0].From, Is.EqualTo(second));
-            Assert.That(preset.Swaps[0].To, Is.EqualTo(secondReplacement));
-            Assert.That(GetItemCount("lv-swap-root-entries"), Is.EqualTo(1));
-
-            var presetMaterialSwap = preset.GetComponent<ModularAvatarMaterialSwap>();
-            Assert.That(presetMaterialSwap.Swaps, Has.Count.EqualTo(1));
-            Assert.That(presetMaterialSwap.Swaps[0].From, Is.EqualTo(second));
-
-            Undo.FlushUndoRecordObjects();
-            MateriluneInspectorIsolation.PerformUndo();
 
             Assert.That(preset.Swaps, Has.Count.EqualTo(2));
+            Assert.That(preset.Swaps[0].From, Is.EqualTo(first));
+            Assert.That(preset.Swaps[0].To, Is.Null);
+            Assert.That(preset.Swaps[1].From, Is.EqualTo(second));
             Assert.That(GetItemCount("lv-swap-root-entries"), Is.EqualTo(2));
         }
 
         [Test]
-        public void AddButtonsAreDisabledWhenManagerOrTargetIsUnresolved()
+        public void PresetAddButtonIsDisabledWhenManagerIsUnresolved()
         {
             var target = CreateTarget();
             m_window = MateriluneWindow.OpenForTests();
             m_window.SetTargetForTests(target);
 
             Assert.That(m_window.rootVisualElement.Q<Button>("btn-preset-add").enabledSelf, Is.False);
-            Assert.That(m_window.rootVisualElement.Q<Button>("btn-swap-root-entry-add").enabledSelf, Is.False);
-            Assert.That(m_window.rootVisualElement.Q<Button>("btn-swap-override-entry-add").enabledSelf, Is.False);
         }
 
         [Test]

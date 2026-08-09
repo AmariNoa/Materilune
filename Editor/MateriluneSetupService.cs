@@ -242,7 +242,11 @@ namespace com.amari_noa.materilune.editor
                 presetState.OverridesByRenderer[renderer] = operationOverride;
             }
 
-            SetAvailableMaterials(preset, renderers, presetState.OverridesByRenderer);
+            SetAvailableMaterials(
+                preset,
+                intermediateOverride,
+                renderers,
+                presetState.OverridesByRenderer);
             if (orphanAction == MateriluneOrphanAction.Remove && presetState.Orphans.Count > 0)
             {
                 RemoveOrphans(preset, presetState.Orphans, new HashSet<Renderer>(renderers));
@@ -800,11 +804,13 @@ namespace com.amari_noa.materilune.editor
 
         private static void SetAvailableMaterials(
             MateriluneSwapRoot preset,
+            MateriluneSwapOverride intermediateOverride,
             IEnumerable<Renderer> renderers,
             IReadOnlyDictionary<Renderer, MateriluneSwapOverride> overridesByRenderer)
         {
             var rootMaterials = new List<Material>();
             var rootMaterialSet = new HashSet<Material>();
+            var intermediateOverrideUpdated = false;
             foreach (var renderer in renderers)
             {
                 var operationOverride = overridesByRenderer[renderer];
@@ -814,6 +820,8 @@ namespace com.amari_noa.materilune.editor
                 operationOverride.AvailableMaterials.AddRange(materials);
                 EditorUtility.SetDirty(operationOverride);
                 PrefabUtility.RecordPrefabInstancePropertyModifications(operationOverride);
+                MateriluneSwapEntries.Rebuild(operationOverride);
+                intermediateOverrideUpdated |= operationOverride == intermediateOverride;
                 foreach (var material in materials)
                 {
                     if (rootMaterialSet.Add(material))
@@ -828,6 +836,19 @@ namespace com.amari_noa.materilune.editor
             preset.AvailableMaterials.AddRange(rootMaterials);
             EditorUtility.SetDirty(preset);
             PrefabUtility.RecordPrefabInstancePropertyModifications(preset);
+            MateriluneSwapEntries.Rebuild(preset);
+
+            if (!intermediateOverrideUpdated)
+            {
+                // The intermediate layer stands for the target object itself, which has no
+                // renderer here, so it offers no material. Entries left from an earlier
+                // configuration become orphans and are kept with a warning rather than dropped.
+                Undo.RecordObject(intermediateOverride, UndoGroupName);
+                intermediateOverride.AvailableMaterials.Clear();
+                EditorUtility.SetDirty(intermediateOverride);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(intermediateOverride);
+                MateriluneSwapEntries.Rebuild(intermediateOverride);
+            }
         }
 
         private static List<Material> GetUniqueMaterials(IEnumerable<Material> materials)

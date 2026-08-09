@@ -29,7 +29,6 @@
       "swap_entry": {
         "from_tooltip": "置換するマテリアル",
         "to_tooltip": "置換先のマテリアル",
-        "pick_from_tooltip": "使用中のマテリアルから選択",
         "previous_tooltip": "前の候補",
         "next_tooltip": "次の候補",
         "load_error": "Materilune のマテリアル置換行 UI アセットを読み込めませんでした。",
@@ -60,8 +59,6 @@
         "preset_remove_tooltip": "このプリセットを削除",
         "preset_remove_title": "プリセットの削除",
         "preset_remove_message": "このプリセットと、その置換設定をすべて削除しますか？",
-        "entry_add_tooltip": "置換エントリを追加",
-        "entry_remove_tooltip": "このエントリを削除",
         "lock_tooltip": "選択が変わっても現在の対象を維持",
         "preset_header": "プリセット",
         "root_header": "プリセット全体の差し替え",
@@ -85,6 +82,7 @@
       "add_preset": "Materilune プリセットの追加",
       "activate_preset": "Materilune プリセットのアクティブ化",
       "deactivate_preset": "Materilune プリセットの非アクティブ化",
+      "rebuild_entries": "Materilune の置換エントリの再生成",
       "repair_reference": "Materilune の Root 参照の修復"
     },
     "watcher": {

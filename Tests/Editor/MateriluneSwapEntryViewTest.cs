@@ -67,7 +67,6 @@ namespace com.amari_noa.materilune.tests.editor
             var view = new MateriluneSwapEntryView();
 
             Assert.That(view.Q<ObjectField>("from-field"), Is.Not.Null);
-            Assert.That(view.Q<Button>("from-picker"), Is.Not.Null);
             Assert.That(view.Q<ObjectField>("to-field"), Is.Not.Null);
             Assert.That(view.Q<Button>("to-previous"), Is.Not.Null);
             Assert.That(view.Q<Button>("to-next"), Is.Not.Null);
@@ -173,36 +172,29 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(GetMaterial(property, "m_to"), Is.EqualTo(replacement));
         }
 
+        /// <summary>
+        /// Verifies the replacement source is shown for reference only. Entries are generated
+        /// from the target meshes, so the source must not be editable.
+        /// </summary>
         [Test]
-        public void ApplyFromCandidateSetsEmptyToAndRaisesChanged()
+        public void ReplacementSourceFieldIsReadOnly()
         {
             var from = CreateMaterial("From.mat");
-            var property = CreateSwapEntryProperty(null, null);
+            var other = CreateMaterial("Other.mat");
+            var property = CreateSwapEntryProperty(from, null);
             var view = new MateriluneSwapEntryView();
+            AttachToPanel(view);
+            view.Bind(property, null, MateriluneCandidateMode.None);
             var changedCount = 0;
             view.Changed += () => changedCount++;
-            view.Bind(property, new[] { from }, MateriluneCandidateMode.None);
+            var fromField = view.Q<ObjectField>("from-field");
 
-            view.ApplyFromCandidate(from);
+            Assert.That(fromField.enabledSelf, Is.False);
 
-            Assert.That(GetMaterial(property, "m_from"), Is.EqualTo(from));
-            Assert.That(GetMaterial(property, "m_to"), Is.EqualTo(from));
-            Assert.That(changedCount, Is.EqualTo(1));
-        }
-
-        [Test]
-        public void ApplyFromCandidatePreservesExistingTo()
-        {
-            var from = CreateMaterial("From.mat");
-            var existingTo = CreateMaterial("ExistingTo.mat");
-            var property = CreateSwapEntryProperty(null, existingTo);
-            var view = new MateriluneSwapEntryView();
-            view.Bind(property, new[] { from }, MateriluneCandidateMode.None);
-
-            view.ApplyFromCandidate(from);
+            fromField.value = other;
 
             Assert.That(GetMaterial(property, "m_from"), Is.EqualTo(from));
-            Assert.That(GetMaterial(property, "m_to"), Is.EqualTo(existingTo));
+            Assert.That(changedCount, Is.EqualTo(0));
         }
 
         [Test]
@@ -248,7 +240,6 @@ namespace com.amari_noa.materilune.tests.editor
 
             Object.DestroyImmediate(entry.serializedObject.targetObject);
 
-            Assert.That(() => view.ApplyFromCandidate(from), Throws.Nothing);
             Assert.That(() => view.StepToCandidate(1), Throws.Nothing);
             Assert.That(() => view.Unbind(), Throws.Nothing);
         }

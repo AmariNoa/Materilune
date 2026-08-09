@@ -91,7 +91,9 @@ namespace com.amari_noa.materilune.tests.editor
 
             Assert.That(added.gameObject.activeSelf, Is.False);
             Assert.That(added.SetupTarget, Is.EqualTo(target));
-            Assert.That(added.Swaps, Is.Empty);
+            Assert.That(added.Swaps, Has.Count.EqualTo(1));
+            Assert.That(added.Swaps[0].From, Is.EqualTo(renderer.sharedMaterial));
+            Assert.That(added.Swaps[0].To, Is.Null);
             Assert.That(FindOverride(added, renderer), Is.Not.Null);
             Assert.That(added.GetComponent<ModularAvatarMaterialSwap>(), Is.Not.Null);
             Assert.That(FindIntermediate(added), Is.Not.Null);
