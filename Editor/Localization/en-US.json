@@ -18,12 +18,6 @@
       }
     },
     "inspector": {
-      "root_title": "Materilune Swap Root",
-      "override_title": "Materilune Swap Override",
-      "available_materials": "Available materials",
-      "swaps": "Material swaps",
-      "swap_from": "From",
-      "swap_to": "To",
       "open_window": "Open in Materilune Window",
       "multiple_objects": "Multiple objects selected",
       "none": "None",
@@ -43,23 +37,6 @@
         "next_tooltip": "Next candidate",
         "load_error": "Materilune could not load the material swap entry UI assets.",
         "missing_element_error": "Materilune material swap entry UI is missing a required element."
-      },
-      "swap_list": {
-        "add_tooltip": "Add replacement entry",
-        "remove_tooltip": "Remove this entry",
-        "load_error": "Materilune could not load the material swap list UI assets."
-      },
-      "preset_bar": {
-        "add_tooltip": "Add preset",
-        "activate_tooltip": "Activate this preset",
-        "load_error": "Materilune could not load the preset bar UI assets."
-      },
-      "target_tree": {
-        "select_tooltip": "Select this mesh",
-        "load_error": "Materilune could not load the target tree UI assets."
-      },
-      "language_selector": {
-        "load_error": "Materilune could not load the language selector UI assets."
       },
       "window": {
         "title": "Materilune",

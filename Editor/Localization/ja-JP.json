@@ -18,12 +18,6 @@
       }
     },
     "inspector": {
-      "root_title": "Materilune Swap Root",
-      "override_title": "Materilune Swap Override",
-      "available_materials": "使用可能なマテリアル",
-      "swaps": "マテリアルの差し替え",
-      "swap_from": "変更元",
-      "swap_to": "変更先",
       "open_window": "Materilune ウィンドウで開く",
       "multiple_objects": "複数のオブジェクトを選択中",
       "none": "なし",
@@ -43,23 +37,6 @@
         "next_tooltip": "次の候補",
         "load_error": "Materilune のマテリアル置換行 UI アセットを読み込めませんでした。",
         "missing_element_error": "Materilune のマテリアル置換行 UI に必要な要素が見つかりません。"
-      },
-      "swap_list": {
-        "add_tooltip": "置換エントリを追加",
-        "remove_tooltip": "このエントリを削除",
-        "load_error": "Materilune のマテリアル置換リスト UI アセットを読み込めませんでした。"
-      },
-      "preset_bar": {
-        "add_tooltip": "プリセットを追加",
-        "activate_tooltip": "このプリセットをアクティブ化",
-        "load_error": "Materilune のプリセットバー UI アセットを読み込めませんでした。"
-      },
-      "target_tree": {
-        "select_tooltip": "このメッシュを選択",
-        "load_error": "Materilune の対象階層ツリー UI アセットを読み込めませんでした。"
-      },
-      "language_selector": {
-        "load_error": "Materilune の言語選択 UI アセットを読み込めませんでした。"
       },
       "window": {
         "title": "Materilune",
