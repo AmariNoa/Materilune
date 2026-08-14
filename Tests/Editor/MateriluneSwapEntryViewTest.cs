@@ -68,8 +68,7 @@ namespace com.amari_noa.materilune.tests.editor
 
             Assert.That(view.Q<ObjectField>("from-field"), Is.Not.Null);
             Assert.That(view.Q<ObjectField>("to-field"), Is.Not.Null);
-            Assert.That(view.Q<Button>("to-previous"), Is.Not.Null);
-            Assert.That(view.Q<Button>("to-next"), Is.Not.Null);
+            Assert.That(view.Q<Button>("btn-to-candidates"), Is.Not.Null);
         }
 
         [Test]
@@ -234,24 +233,7 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         [Test]
-        public void StepToCandidateMovesForwardAndWrapsInSameDirectory()
-        {
-            var first = CreateMaterial("A_First.mat");
-            var current = CreateMaterial("B_Current.mat");
-            var last = CreateMaterial("C_Last.mat");
-            var property = CreateSwapEntryProperty(current, current);
-            var view = new MateriluneSwapEntryView();
-            view.Bind(property, null, MateriluneCandidateMode.SameDirectory);
-
-            view.StepToCandidate(1);
-            Assert.That(GetMaterial(property, "m_to"), Is.EqualTo(last));
-
-            view.StepToCandidate(1);
-            Assert.That(GetMaterial(property, "m_to"), Is.EqualTo(first));
-        }
-
-        [Test]
-        public void BindWithNoneModeDisablesCandidateButtons()
+        public void BindWithNoneModeKeepsCandidateButtonEnabledForEditableEntry()
         {
             var material = CreateMaterial("Material.mat");
             var property = CreateSwapEntryProperty(material, material);
@@ -259,8 +241,15 @@ namespace com.amari_noa.materilune.tests.editor
 
             view.Bind(property, null, MateriluneCandidateMode.None);
 
-            Assert.That(view.Q<Button>("to-previous").enabledSelf, Is.False);
-            Assert.That(view.Q<Button>("to-next").enabledSelf, Is.False);
+            Assert.That(view.Q<Button>("btn-to-candidates").enabledSelf, Is.True);
+        }
+
+        [Test]
+        public void UnboundCandidateButtonIsDisabled()
+        {
+            var view = new MateriluneSwapEntryView();
+
+            Assert.That(view.Q<Button>("btn-to-candidates").enabledSelf, Is.False);
         }
 
         /// <summary>
@@ -276,7 +265,7 @@ namespace com.amari_noa.materilune.tests.editor
 
             Object.DestroyImmediate(entry.serializedObject.targetObject);
 
-            Assert.That(() => view.StepToCandidate(1), Throws.Nothing);
+            Assert.That(() => view.OpenCandidatePicker(), Throws.Nothing);
             Assert.That(() => view.Unbind(), Throws.Nothing);
         }
 

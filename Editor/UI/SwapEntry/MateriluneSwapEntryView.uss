@@ -13,8 +13,8 @@
 }
 
 .materilune-swap-entry > .unity-button {
-    width: 20px;
-    min-width: 20px;
+    width: 58px;
+    min-width: 58px;
     margin-left: 1px;
     margin-right: 1px;
     padding-left: 0;

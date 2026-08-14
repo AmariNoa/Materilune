@@ -32,11 +32,19 @@
       "swap_entry": {
         "from_tooltip": "Material to replace. Generated from the target meshes and shown for reference",
         "orphan_tooltip": "This material is no longer used by the target meshes. The replacement is kept but not applied.",
+        "candidates_label": "Choose",
         "to_tooltip": "Replacement material",
-        "previous_tooltip": "Previous candidate",
-        "next_tooltip": "Next candidate",
+        "candidates_tooltip": "Choose a replacement candidate",
         "load_error": "Materilune could not load the material swap entry UI assets.",
         "missing_element_error": "Materilune material swap entry UI is missing a required element."
+      },
+      "candidate_picker": {
+        "clear": "None (clear the replacement)",
+        "same_directory_tab": "Same directory",
+        "sibling_directory_tab": "Sibling directories",
+        "empty_message": "No candidate materials were found.",
+        "load_error": "Materilune could not load the material candidate picker UI assets.",
+        "missing_element_error": "Materilune material candidate picker UI is missing a required element."
       },
       "window": {
         "title": "Materilune",

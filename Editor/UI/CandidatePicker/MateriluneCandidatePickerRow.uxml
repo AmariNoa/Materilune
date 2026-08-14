@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="elm-candidate-row" class="materilune-candidate-picker__row">
+        <ui:Label name="lbl-material-name" class="materilune-candidate-picker__name" />
+        <ui:Image name="img-material-preview" class="materilune-candidate-picker__preview" />
+    </ui:VisualElement>
+</ui:UXML>

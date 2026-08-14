@@ -2,7 +2,6 @@
     <ui:VisualElement class="materilune-swap-entry">
         <uie:ObjectField name="from-field" />
         <uie:ObjectField name="to-field" />
-        <ui:Button name="to-previous" />
-        <ui:Button name="to-next" />
+        <ui:Button name="btn-to-candidates" />
     </ui:VisualElement>
 </ui:UXML>

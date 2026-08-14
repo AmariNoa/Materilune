@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="elm-candidate-picker" class="materilune-candidate-picker">
+        <ui:VisualElement name="elm-tabs" class="materilune-candidate-picker__tabs">
+            <ui:Button name="btn-tab-same-directory" class="materilune-candidate-picker__tab" />
+            <ui:Button name="btn-tab-sibling-directory" class="materilune-candidate-picker__tab" />
+        </ui:VisualElement>
+        <ui:ListView name="lv-candidates" class="materilune-candidate-picker__list" style="flex-grow: 1; min-height: 0;" />
+        <ui:Label name="lbl-empty" class="materilune-candidate-picker__empty" />
+    </ui:VisualElement>
+</ui:UXML>

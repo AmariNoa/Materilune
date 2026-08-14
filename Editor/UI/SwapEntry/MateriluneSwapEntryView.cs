@@ -26,8 +26,7 @@ namespace com.amari_noa.materilune.editor
         private VisualElement m_row;
         private ObjectField m_fromField;
         private ObjectField m_toField;
-        private Button m_toPrevious;
-        private Button m_toNext;
+        private Button m_toCandidates;
         private SerializedProperty m_swapEntryProperty;
         private MateriluneCandidateMode m_candidateMode;
         private bool m_isBound;
@@ -61,9 +60,8 @@ namespace com.amari_noa.materilune.editor
             m_row = this.Q<VisualElement>(className: RowClass);
             m_fromField = this.Q<ObjectField>("from-field");
             m_toField = this.Q<ObjectField>("to-field");
-            m_toPrevious = this.Q<Button>("to-previous");
-            m_toNext = this.Q<Button>("to-next");
-            if (m_fromField == null || m_toField == null || m_toPrevious == null || m_toNext == null)
+            m_toCandidates = this.Q<Button>("btn-to-candidates");
+            if (m_fromField == null || m_toField == null || m_toCandidates == null)
             {
                 Debug.LogError(MateriluneL10n.Get(
                     "materilune.ui.swap_entry.missing_element_error",
@@ -105,7 +103,9 @@ namespace com.amari_noa.materilune.editor
         /// Ignored. The replacement source is generated from the target meshes and cannot be
         /// chosen, so no candidate list is needed. The parameter stays for the public contract.
         /// </param>
-        /// <param name="candidateMode">The mode used to discover replacement candidates.</param>
+        /// <param name="candidateMode">
+        /// The mode used as the initial tab when the replacement candidate picker opens.
+        /// </param>
         public void Bind(
             SerializedProperty swapEntryProperty,
             IReadOnlyList<Material> fromCandidates,
@@ -170,47 +170,6 @@ namespace com.amari_noa.materilune.editor
             SetControlsEnabled(false);
         }
 
-        /// <summary>
-        /// Selects the preceding or following replacement candidate.
-        /// </summary>
-        /// <param name="direction">A negative value selects the preceding candidate; a positive value selects the following candidate.</param>
-        internal void StepToCandidate(int direction)
-        {
-            if (!CanEdit() || direction == 0 || m_candidateMode == MateriluneCandidateMode.None)
-            {
-                return;
-            }
-
-            var serializedObject = m_swapEntryProperty.serializedObject;
-            serializedObject.Update();
-            var fromProperty = m_swapEntryProperty.FindPropertyRelative("m_from");
-            var toProperty = m_swapEntryProperty.FindPropertyRelative("m_to");
-            if (fromProperty == null || toProperty == null)
-            {
-                return;
-            }
-
-            var current = toProperty.objectReferenceValue as Material ?? fromProperty.objectReferenceValue as Material;
-            var candidates = MateriluneMaterialCandidates.GetCandidates(current, m_candidateMode);
-            if (candidates.Count < 2)
-            {
-                UpdateControlState();
-                return;
-            }
-
-            var currentIndex = candidates.IndexOf(current);
-            if (currentIndex < 0)
-            {
-                UpdateControlState();
-                return;
-            }
-
-            var offset = direction < 0 ? -1 : 1;
-            var nextIndex = (currentIndex + offset + candidates.Count) % candidates.Count;
-            toProperty.objectReferenceValue = candidates[nextIndex];
-            ApplyChanges(serializedObject);
-        }
-
         private void ConfigureFields()
         {
             m_fromField.objectType = typeof(Material);
@@ -226,12 +185,7 @@ namespace com.amari_noa.materilune.editor
 
         private void ConfigureButtons()
         {
-            // Plain glyphs rather than built-in icon USS variables, whose names are not a stable
-            // contract across Unity versions.
-            m_toPrevious.text = "<";
-            m_toNext.text = ">";
-            m_toPrevious.clicked += () => StepToCandidate(-1);
-            m_toNext.clicked += () => StepToCandidate(1);
+            m_toCandidates.clicked += OpenCandidatePicker;
         }
 
         private static bool IsOrphaned(Material from, IReadOnlyList<Material> offeredMaterials)
@@ -275,10 +229,38 @@ namespace com.amari_noa.materilune.editor
 
         private void ApplyLocalizedTexts()
         {
+            m_toCandidates.text = MateriluneL10n.Get(
+                "materilune.ui.swap_entry.candidates_label",
+                "Choose");
             m_toField.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.to_tooltip", "Replacement material");
-            m_toPrevious.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.previous_tooltip", "Previous candidate");
-            m_toNext.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.next_tooltip", "Next candidate");
+            m_toCandidates.tooltip = MateriluneL10n.Get(
+                "materilune.ui.swap_entry.candidates_tooltip",
+                "Choose a replacement candidate");
             ApplyOrphanState();
+        }
+
+        /// <summary>
+        /// Opens the replacement candidate picker. Internal so a test can take the same path the
+        /// button takes: Button.clicked is an event with accessors and cannot be raised from
+        /// outside this assembly.
+        /// </summary>
+        internal void OpenCandidatePicker()
+        {
+            if (!CanEdit())
+            {
+                return;
+            }
+
+            MateriluneCandidatePickerWindow.Open(
+                m_toCandidates.worldBound,
+                GetCurrentTo() ?? GetCurrentFrom(),
+                m_candidateMode,
+                OnCandidateSelected);
+        }
+
+        private void OnCandidateSelected(Material material)
+        {
+            ApplyFieldValue("m_to", material);
         }
 
         private void OnToFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)
@@ -353,11 +335,7 @@ namespace com.amari_noa.materilune.editor
             m_fromField.SetEnabled(false);
             m_toField.SetEnabled(true);
 
-            var current = GetCurrentTo() ?? GetCurrentFrom();
-            var canStep = m_candidateMode != MateriluneCandidateMode.None
-                && MateriluneMaterialCandidates.GetCandidates(current, m_candidateMode).Count >= 2;
-            m_toPrevious.SetEnabled(canStep);
-            m_toNext.SetEnabled(canStep);
+            m_toCandidates.SetEnabled(true);
         }
 
         private void SetControlsEnabled(bool enabled)
@@ -369,8 +347,7 @@ namespace com.amari_noa.materilune.editor
 
             m_fromField.SetEnabled(false);
             m_toField.SetEnabled(enabled);
-            m_toPrevious.SetEnabled(enabled);
-            m_toNext.SetEnabled(enabled);
+            m_toCandidates.SetEnabled(enabled);
         }
 
         private Material GetCurrentFrom()
@@ -410,8 +387,7 @@ namespace com.amari_noa.materilune.editor
         {
             return m_fromField != null
                 && m_toField != null
-                && m_toPrevious != null
-                && m_toNext != null;
+                && m_toCandidates != null;
         }
     }
 }

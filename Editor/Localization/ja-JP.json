@@ -32,11 +32,19 @@
       "swap_entry": {
         "from_tooltip": "置換元のマテリアル。対象メッシュから自動生成された表示専用の値です",
         "orphan_tooltip": "このマテリアルは対象メッシュで使われなくなりました。置換先の設定は保持されますが適用されません。",
+        "candidates_label": "選択",
         "to_tooltip": "置換先のマテリアル",
-        "previous_tooltip": "前の候補",
-        "next_tooltip": "次の候補",
+        "candidates_tooltip": "置換先の候補を選択",
         "load_error": "Materilune のマテリアル置換行 UI アセットを読み込めませんでした。",
         "missing_element_error": "Materilune のマテリアル置換行 UI に必要な要素が見つかりません。"
+      },
+      "candidate_picker": {
+        "clear": "なし（置き換えを解除）",
+        "same_directory_tab": "同じディレクトリ",
+        "sibling_directory_tab": "兄弟ディレクトリ",
+        "empty_message": "候補のマテリアルが見つかりません。",
+        "load_error": "Materilune のマテリアル候補選択 UI アセットを読み込めませんでした。",
+        "missing_element_error": "Materilune のマテリアル候補選択 UI に必要な要素が見つかりません。"
       },
       "window": {
         "title": "Materilune",
