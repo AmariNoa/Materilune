@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -78,13 +79,68 @@ namespace com.amari_noa.materilune.tests.editor
             var tracker = ActiveEditorTracker.sharedTracker;
             var wasLocked = tracker.isLocked;
             tracker.isLocked = true;
+
+            // Destroying the editors and locking the tracker still leaves the failure reachable:
+            // an inspector tab that is locked or hidden keeps its own tracker, and an editor
+            // created while the undo restores the selection subscribes before the callbacks run.
+            // Taking the offending subscriptions out of the callback list for the duration of the
+            // call removes the failure at its source, and touches nothing else.
+            var suspended = SuspendExpressionsMenuCallbacks();
             try
             {
                 undoAction();
             }
             finally
             {
+                RestoreCallbacks(suspended);
                 tracker.isLocked = wasLocked;
+            }
+        }
+
+        /// <summary>
+        /// Removes the expressions menu editors' undo callbacks and returns them for restoring.
+        /// </summary>
+        /// <returns>The callbacks that were removed.</returns>
+        private static List<Undo.UndoRedoCallback> SuspendExpressionsMenuCallbacks()
+        {
+            var suspended = new List<Undo.UndoRedoCallback>();
+
+            // Undo.undoRedoPerformed is a plain delegate field rather than an event, so the
+            // invocation list can be read and individual handlers removed.
+            var current = Undo.undoRedoPerformed;
+            if (current == null)
+            {
+                return suspended;
+            }
+
+            foreach (var handler in current.GetInvocationList())
+            {
+                var callback = (Undo.UndoRedoCallback)handler;
+                if (callback.Target != null && IsExpressionsMenuEditor(callback.Target.GetType()))
+                {
+                    Undo.undoRedoPerformed -= callback;
+                    suspended.Add(callback);
+                }
+            }
+
+            return suspended;
+        }
+
+        /// <summary>
+        /// Puts back the callbacks whose editor is still alive.
+        /// </summary>
+        /// <param name="suspended">The callbacks removed before the undo.</param>
+        private static void RestoreCallbacks(List<Undo.UndoRedoCallback> suspended)
+        {
+            foreach (var callback in suspended)
+            {
+                // An editor destroyed during the undo already unsubscribed, which the removal
+                // above turned into a no-op. Putting its callback back would leave a subscription
+                // to a dead editor, which is the failure this helper exists to prevent.
+                if (callback.Target is Object editor && editor != null)
+                {
+                    Undo.undoRedoPerformed += callback;
+                }
             }
         }
 
