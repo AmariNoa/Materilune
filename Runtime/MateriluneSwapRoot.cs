@@ -10,6 +10,7 @@ namespace com.amari_noa.materilune.runtime
     public sealed class MateriluneSwapRoot : MonoBehaviour, nadena.dev.ndmf.INDMFEditorOnly
     {
         [SerializeField] private GameObject m_setupTarget;
+        [SerializeField] private MateriluneSwapOverride m_targetOverride;
         [SerializeField] private List<Material> m_availableMaterials = new List<Material>();
         [SerializeField] private List<MateriluneMaterialSwapEntry> m_swaps = new List<MateriluneMaterialSwapEntry>();
         [SerializeField] private MateriluneCandidateMode m_candidateMode;
@@ -21,6 +22,17 @@ namespace com.amari_noa.materilune.runtime
         {
             get => m_setupTarget;
             set => m_setupTarget = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the override that stands for the setup target itself. It sits directly
+        /// under this preset and hosts every mesh's operation object, so it is held by
+        /// reference rather than located by position or by name.
+        /// </summary>
+        public MateriluneSwapOverride TargetOverride
+        {
+            get => m_targetOverride;
+            set => m_targetOverride = value;
         }
 
         /// <summary>

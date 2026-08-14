@@ -1,0 +1,25 @@
+/* Styles for MateriluneWindowLayout.uxml.
+
+   The window loads this sheet by path and applies it to its root, so any selector written
+   here reaches the elements defined in that document, including the UI parts the window
+   inserts into the slots at runtime (the preset bar, the swap lists and the target tree).
+
+   Part-local styles live with each part under Editor/UI/<part>/. Override them from here
+   only where this window needs a different arrangement, so the parts stay reusable. */
+
+.materilune-window__preset--active {
+    -unity-font-style: bold;
+}
+
+/* TreeView paints its own background from the built-in editor theme, which hides the
+   surrounding box colour that the neighbouring ListView columns show through. Clear it so
+   every column inside the same box reads as one surface. */
+#tv-swap-override-components {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* The status bar always shows the current state, so the row it occupies never reads as an
+   empty gap. Only its colour changes, which keeps the layout still (AGENTS.md 2.4 (7)). */
+.materilune-window__status--warning {
+    background-color: rgb(96, 82, 48);
+}

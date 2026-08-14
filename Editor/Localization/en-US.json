@@ -18,39 +18,58 @@
       }
     },
     "inspector": {
-      "root_title": "Materilune Swap Root",
-      "override_title": "Materilune Swap Override",
-      "available_materials": "Available materials",
-      "swaps": "Material swaps",
-      "swap_from": "From",
-      "swap_to": "To"
+      "open_window": "Open in Materilune Window",
+      "multiple_objects": "Multiple objects selected",
+      "none": "None",
+      "swap_summary": "Presets: {0}\nActive preset: {1}",
+      "root_summary": "Target: {0}\nReplacements set: {1} / {2}{3}",
+      "override_summary": "Target mesh: {0}\nReplacements set: {1} / {2}",
+      "orphaned_suffix": " (orphaned: {0})",
+      "load_error": "Materilune could not load the inspector UI assets.",
+      "missing_element_error": "Materilune inspector UI is missing a required element."
     },
     "ui": {
       "swap_entry": {
-        "from_tooltip": "Material to replace",
+        "from_tooltip": "Material to replace. Generated from the target meshes and shown for reference",
+        "orphan_tooltip": "This material is no longer used by the target meshes. The replacement is kept but not applied.",
+        "candidates_label": "Choose",
         "to_tooltip": "Replacement material",
-        "pick_from_tooltip": "Choose from materials in use",
-        "previous_tooltip": "Previous candidate",
-        "next_tooltip": "Next candidate",
+        "candidates_tooltip": "Choose a replacement candidate",
         "load_error": "Materilune could not load the material swap entry UI assets.",
         "missing_element_error": "Materilune material swap entry UI is missing a required element."
       },
-      "swap_list": {
-        "add_tooltip": "Add replacement entry",
-        "remove_tooltip": "Remove this entry",
-        "load_error": "Materilune could not load the material swap list UI assets."
+      "candidate_picker": {
+        "clear": "None (clear the replacement)",
+        "same_directory_tab": "Same directory",
+        "sibling_directory_tab": "Sibling directories",
+        "empty_message": "No candidate materials were found.",
+        "load_error": "Materilune could not load the material candidate picker UI assets.",
+        "missing_element_error": "Materilune material candidate picker UI is missing a required element."
       },
-      "preset_bar": {
-        "add_tooltip": "Add preset",
-        "activate_tooltip": "Activate this preset",
-        "load_error": "Materilune could not load the preset bar UI assets."
-      },
-      "target_tree": {
-        "select_tooltip": "Select this mesh",
-        "load_error": "Materilune could not load the target tree UI assets."
-      },
-      "language_selector": {
-        "load_error": "Materilune could not load the language selector UI assets."
+      "window": {
+        "title": "Materilune",
+        "target_label": "Target",
+        "swap_tab": "Material Swap",
+        "status_no_target": "Select the object to work on in the hierarchy.",
+        "status_not_set_up": "Materilune is not set up on this object.",
+        "status_update_required": "The target meshes carry materials that are not listed yet.",
+        "status_summary": "{0} presets, {1} target meshes, {2} of {3} replacements set",
+        "status_summary_orphans": " (orphaned entries: {0})",
+        "update_button": "Update",
+        "update_tooltip": "Rebuild the replacement entries from the target meshes",
+        "preset_add_tooltip": "Add preset",
+        "preset_remove_tooltip": "Remove this preset",
+        "preset_remove_title": "Remove preset",
+        "preset_remove_message": "Remove this preset and all of its replacement settings?",
+        "lock_tooltip": "Keep the current target when the selection changes",
+        "preset_header": "Presets",
+        "root_header": "Preset-wide replacements",
+        "override_header": "Selected mesh replacements",
+        "tree_header": "Target meshes",
+        "setup_message": "Materilune is not set up on this object yet.",
+        "setup_button": "Run setup",
+        "empty_message": "Select an avatar or outfit object in the hierarchy.",
+        "load_error": "Materilune could not load the window UI assets."
       }
     },
     "warning": {
@@ -65,6 +84,8 @@
       "add_preset": "Add Materilune Preset",
       "activate_preset": "Activate Materilune Preset",
       "deactivate_preset": "Deactivate Materilune Preset",
+      "update_entries": "Update Materilune Entries",
+      "rebuild_entries": "Rebuild Materilune Swap Entries",
       "repair_reference": "Repair Materilune Root Reference"
     },
     "watcher": {

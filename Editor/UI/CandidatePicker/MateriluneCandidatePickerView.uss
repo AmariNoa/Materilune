@@ -1,0 +1,62 @@
+.materilune-candidate-picker {
+    flex-grow: 1;
+    flex-direction: column;
+    padding-top: 6px;
+    padding-right: 6px;
+    padding-bottom: 6px;
+    padding-left: 6px;
+}
+
+.materilune-candidate-picker__tabs {
+    flex-direction: row;
+    flex-shrink: 0;
+    margin-bottom: 4px;
+}
+
+.materilune-candidate-picker__tab {
+    flex-grow: 1;
+    margin-left: 1px;
+    margin-right: 1px;
+}
+
+.materilune-candidate-picker__tab--selected {
+    background-color: rgb(80, 105, 135);
+}
+
+.materilune-candidate-picker__list {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+.materilune-candidate-picker__empty {
+    flex-shrink: 0;
+    min-height: 20px;
+    margin-top: 4px;
+    -unity-text-align: middle-left;
+}
+
+.materilune-candidate-picker__row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 32px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.materilune-candidate-picker__name {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    -unity-text-align: middle-left;
+}
+
+/* The slot keeps its size whether or not the thumbnail has been rendered, so a row never
+   changes shape while previews arrive. */
+.materilune-candidate-picker__preview {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    margin-left: 4px;
+}

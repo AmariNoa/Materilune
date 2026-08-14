@@ -1,0 +1,50 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <ui:VisualElement style="flex-grow: 1; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px;">
+        <ui:VisualElement name="elm-header" style="flex-grow: 1; height: 40px; max-height: 40px; min-height: 40px; flex-direction: row;">
+            <ui:VisualElement style="flex-grow: 1;">
+                <uie:ObjectField label="Object Field" name="target-field" />
+            </ui:VisualElement>
+            <ui:VisualElement style="flex-grow: 1; max-width: 5%;" />
+            <ui:VisualElement style="flex-grow: 1;">
+                <ui:DropdownField label="Language" name="dd-language" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="elm-main" style="flex-grow: 1; padding-top: 10px;">
+            <ui:VisualElement name="elm-model-select-tab" style="flex-grow: 1; max-height: 30px; min-height: 30px; flex-direction: row; justify-content: space-between;">
+                <ui:VisualElement style="flex-grow: 1;">
+                    <ui:Button text="Material Swap" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btn-swap" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="elm-status-bar" style="flex-shrink: 0; flex-direction: row; align-items: center; background-color: rgb(66, 66, 66); margin-top: 10px; margin-right: 10px; margin-left: 10px; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 10px;">
+                <ui:Label name="lbl-status-message" style="flex-grow: 1; flex-shrink: 1; min-width: 0; overflow: hidden; -unity-text-align: middle-left;" />
+                <ui:Button name="btn-update" style="flex-shrink: 0; visibility: hidden;" />
+            </ui:VisualElement>
+            <ui:VisualElement name="elm-tab-page-material-swap" style="flex-grow: 1; flex-direction: row; justify-content: space-between; min-height: 0;">
+                <ui:VisualElement style="flex-grow: 1; max-width: 15%; min-height: 0; min-width: 15%; background-color: rgb(77, 77, 77); margin-top: 10px; margin-right: 10px; margin-bottom: 10px; margin-left: 10px; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px; width: 15%;">
+                    <ui:Label tabindex="-1" text="Preset List" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                    <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
+                    <ui:ListView name="lv-preset-list" style="flex-grow: 1; min-height: 0; background-color: rgb(109, 109, 109); padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;" />
+                    <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
+                    <ui:Button name="btn-preset-add" style="flex-shrink: 0;" />
+                </ui:VisualElement>
+                <ui:VisualElement style="flex-grow: 1; flex-direction: row; min-height: 0; min-width: auto; background-color: rgb(77, 77, 77); margin-top: 10px; margin-right: 10px; margin-bottom: 10px; margin-left: 10px; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px; width: 85%; max-width: none;">
+                    <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0; width: 40%; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;">
+                        <ui:Label tabindex="-1" text="Materilune Swap Root Component" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                        <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
+                        <ui:ListView name="lv-swap-root-entries" style="flex-grow: 1; min-height: 0; background-color: rgb(108, 108, 108); padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;" />
+                    </ui:VisualElement>
+                    <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0; width: 20%; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;">
+                        <ui:Label tabindex="-1" text="Materilune Swap Override Components" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                        <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
+                        <ui:TreeView name="tv-swap-override-components" style="flex-grow: 1; min-height: 0; background-color: rgb(109, 109, 109); padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;" />
+                    </ui:VisualElement>
+                    <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0; width: 40%; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;">
+                        <ui:Label tabindex="-1" text="Materilune Swap Override Details" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                        <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
+                        <ui:ListView name="lv-swap-override-entries" style="flex-grow: 1; min-height: 0; background-color: rgb(109, 109, 109); padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

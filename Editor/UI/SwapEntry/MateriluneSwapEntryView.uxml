@@ -1,9 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
     <ui:VisualElement class="materilune-swap-entry">
         <uie:ObjectField name="from-field" />
-        <ui:Button name="from-picker" />
         <uie:ObjectField name="to-field" />
-        <ui:Button name="to-previous" />
-        <ui:Button name="to-next" />
+        <ui:Button name="btn-to-candidates" />
     </ui:VisualElement>
 </ui:UXML>

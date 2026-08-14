@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Label name="lbl-summary" class="materilune-inspector-summary" />
+    <ui:Button name="btn-open-window" />
+</ui:UXML>

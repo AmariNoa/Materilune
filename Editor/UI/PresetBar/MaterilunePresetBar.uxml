@@ -1,6 +1,0 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
-    <ui:VisualElement class="materilune-preset-bar">
-        <ui:VisualElement name="presets" />
-        <ui:Button name="add-button" />
-    </ui:VisualElement>
-</ui:UXML>

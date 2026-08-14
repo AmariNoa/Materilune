@@ -52,10 +52,17 @@ namespace com.amari_noa.materilune.tests.editor
 
             var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
             var preset = GetOnlyPreset(manager);
+            var marker = manager.transform.parent;
 
-            Assert.That(manager.transform.parent, Is.EqualTo(target.transform));
+            Assert.That(marker, Is.Not.Null);
+            Assert.That(marker.GetComponent<Materilune>(), Is.Not.Null);
+            Assert.That(marker.parent, Is.EqualTo(target.transform));
+            Assert.That(manager.transform.parent, Is.EqualTo(marker));
+            Assert.That(preset.transform.parent, Is.EqualTo(manager.transform));
             Assert.That(preset.gameObject.activeSelf, Is.True);
             Assert.That(FindOverride(preset, renderer), Is.Not.Null);
+            Assert.That(preset.GetComponent<ModularAvatarMaterialSwap>(), Is.Not.Null);
+            Assert.That(FindIntermediate(preset), Is.Not.Null);
         }
 
         [Test]
@@ -84,14 +91,25 @@ namespace com.amari_noa.materilune.tests.editor
 
             Assert.That(added.gameObject.activeSelf, Is.False);
             Assert.That(added.SetupTarget, Is.EqualTo(target));
-            Assert.That(added.Swaps, Is.Empty);
+            Assert.That(added.Swaps, Has.Count.EqualTo(1));
+            Assert.That(added.Swaps[0].From, Is.EqualTo(renderer.sharedMaterial));
+            Assert.That(added.Swaps[0].To, Is.Null);
             Assert.That(FindOverride(added, renderer), Is.Not.Null);
+            Assert.That(added.GetComponent<ModularAvatarMaterialSwap>(), Is.Not.Null);
+            Assert.That(FindIntermediate(added), Is.Not.Null);
+            Assert.That(added.TargetOverride, Is.EqualTo(FindIntermediate(added)));
+            Assert.That(
+                added.GetComponent<ModularAvatarMaterialSwap>().Root.Get(added.GetComponent<ModularAvatarMaterialSwap>()),
+                Is.EqualTo(target));
 
             MateriluneInspectorIsolation.DeselectAll();
-            Undo.PerformUndo();
+            MateriluneInspectorIsolation.PerformUndo();
             Assert.That(manager.GetPresets(), Has.Count.EqualTo(1));
-            Undo.PerformRedo();
+            MateriluneInspectorIsolation.PerformRedo();
             Assert.That(manager.GetPresets(), Has.Count.EqualTo(2));
+
+            var restoredPreset = manager.GetPresets()[1];
+            Assert.That(restoredPreset.TargetOverride, Is.EqualTo(FindIntermediate(restoredPreset)));
         }
 
         [Test]
@@ -166,6 +184,24 @@ namespace com.amari_noa.materilune.tests.editor
             }
 
             return null;
+        }
+
+        private static MateriluneSwapOverride FindIntermediate(MateriluneSwapRoot root)
+        {
+            MateriluneSwapOverride result = null;
+            foreach (Transform child in root.transform)
+            {
+                var candidate = child.GetComponent<MateriluneSwapOverride>();
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                Assert.That(result, Is.Null);
+                result = candidate;
+            }
+
+            return result;
         }
     }
 }
