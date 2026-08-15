@@ -43,6 +43,8 @@ namespace com.amari_noa.materilune.editor
         private DropdownField m_languageDropdown;
         private Button m_swapButton;
         private Button m_presetAddButton;
+        private Button m_rootClearButton;
+        private Button m_overrideClearButton;
         private VisualElement m_statusBar;
         private Label m_statusMessage;
         private Button m_updateButton;
@@ -232,6 +234,16 @@ namespace com.amari_noa.materilune.editor
                 m_updateButton.clicked += OnUpdateClicked;
             }
 
+            if (m_rootClearButton != null)
+            {
+                m_rootClearButton.clicked += OnRootClearClicked;
+            }
+
+            if (m_overrideClearButton != null)
+            {
+                m_overrideClearButton.clicked += OnOverrideClearClicked;
+            }
+
             m_uiReady = true;
             ApplyLocalizedTexts();
             Rebuild();
@@ -249,6 +261,9 @@ namespace com.amari_noa.materilune.editor
             m_statusBar = rootVisualElement.Q<VisualElement>("elm-status-bar");
             m_statusMessage = rootVisualElement.Q<Label>("lbl-status-message");
             m_updateButton = rootVisualElement.Q<Button>("btn-update");
+            m_rootClearButton = rootVisualElement.Q<Button>("btn-clear-swap-root-entries");
+            m_overrideClearButton =
+                rootVisualElement.Q<Button>("btn-clear-swap-override-entries");
             m_presetList = rootVisualElement.Q<ListView>("lv-preset-list");
             m_rootSwapList = rootVisualElement.Q<ListView>("lv-swap-root-entries");
             m_overrideTree = rootVisualElement.Q<TreeView>("tv-swap-override-components");
@@ -281,6 +296,8 @@ namespace com.amari_noa.materilune.editor
             m_statusBar = null;
             m_statusMessage = null;
             m_updateButton = null;
+            m_rootClearButton = null;
+            m_overrideClearButton = null;
             m_presetList = null;
             m_rootSwapList = null;
             m_overrideTree = null;
@@ -316,6 +333,16 @@ namespace com.amari_noa.materilune.editor
             if (m_updateButton != null)
             {
                 m_updateButton.clicked -= OnUpdateClicked;
+            }
+
+            if (m_rootClearButton != null)
+            {
+                m_rootClearButton.clicked -= OnRootClearClicked;
+            }
+
+            if (m_overrideClearButton != null)
+            {
+                m_overrideClearButton.clicked -= OnOverrideClearClicked;
             }
         }
 
@@ -622,6 +649,76 @@ namespace com.amari_noa.materilune.editor
                     "materilune.ui.window.status_summary_orphans",
                     " (orphaned entries: {0})"),
                 orphaned);
+        }
+
+        private void OnRootClearClicked()
+        {
+            ClearReplacements(m_rootSerializedObject);
+        }
+
+        private void OnOverrideClearClicked()
+        {
+            ClearReplacements(m_overrideSerializedObject);
+        }
+
+        /// <summary>
+        /// Clears the replacement of every entry a component holds, leaving the entries in place.
+        /// </summary>
+        /// <param name="serializedObject">The component whose replacements are cleared.</param>
+        /// <remarks>
+        /// The entries are generated from the target meshes and are not the user's to remove, so
+        /// only the replacements go back to none. One undo takes the whole panel back.
+        /// </remarks>
+        private void ClearReplacements(SerializedObject serializedObject)
+        {
+            var manager = ResolvedManager;
+            if (manager == null || serializedObject == null || serializedObject.targetObject == null)
+            {
+                Rebuild();
+                return;
+            }
+
+            serializedObject.Update();
+            var swapsProperty = serializedObject.FindProperty("m_swaps");
+            if (swapsProperty == null || !swapsProperty.isArray)
+            {
+                return;
+            }
+
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName(MateriluneL10n.Get(
+                "materilune.undo.clear_replacements",
+                "Clear Materilune Replacements"));
+            var changed = false;
+            try
+            {
+                for (var index = 0; index < swapsProperty.arraySize; index++)
+                {
+                    var toProperty = swapsProperty.GetArrayElementAtIndex(index)
+                        .FindPropertyRelative("m_to");
+                    if (toProperty != null)
+                    {
+                        toProperty.objectReferenceValue = null;
+                    }
+                }
+
+                changed = serializedObject.ApplyModifiedProperties();
+                if (changed)
+                {
+                    MarkObjectDirty(serializedObject.targetObject);
+                    MateriluneSwapSynchronizer.Sync(manager);
+                }
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            if (changed)
+            {
+                Rebuild();
+            }
         }
 
         private void OnUpdateClicked()
@@ -1070,6 +1167,16 @@ namespace com.amari_noa.materilune.editor
             }
 
             Rebuild();
+        }
+
+        internal void ClearRootReplacementsForTests()
+        {
+            OnRootClearClicked();
+        }
+
+        internal bool IsRootClearOfferedForTests()
+        {
+            return m_rootClearButton != null && m_rootClearButton.enabledSelf;
         }
 
         internal void AddPresetForTests()
@@ -1592,6 +1699,49 @@ namespace com.amari_noa.materilune.editor
                 m_presetAddButton.SetEnabled(manager != null);
             }
 
+            // Enabled only while there is something to clear, so pressing it always does
+            // something. Disabling never changes the layout, so nothing moves.
+            if (m_rootClearButton != null)
+            {
+                m_rootClearButton.SetEnabled(HasAnyReplacement(m_rootSerializedObject));
+            }
+
+            if (m_overrideClearButton != null)
+            {
+                m_overrideClearButton.SetEnabled(HasAnyReplacement(m_overrideSerializedObject));
+            }
+        }
+
+        /// <summary>
+        /// Determines whether a component holds at least one entry that names a replacement.
+        /// </summary>
+        /// <param name="serializedObject">The component to inspect.</param>
+        /// <returns><see langword="true" /> when there is something to clear.</returns>
+        private static bool HasAnyReplacement(SerializedObject serializedObject)
+        {
+            if (serializedObject == null || serializedObject.targetObject == null)
+            {
+                return false;
+            }
+
+            serializedObject.Update();
+            var swapsProperty = serializedObject.FindProperty("m_swaps");
+            if (swapsProperty == null || !swapsProperty.isArray)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < swapsProperty.arraySize; index++)
+            {
+                var toProperty = swapsProperty.GetArrayElementAtIndex(index)
+                    .FindPropertyRelative("m_to");
+                if (toProperty != null && toProperty.objectReferenceValue != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void ClearListView(ListView listView, System.Collections.IList emptyItems)
@@ -1640,6 +1790,9 @@ namespace com.amari_noa.materilune.editor
                     "Add preset");
             }
 
+            ApplyClearButtonText(m_rootClearButton);
+            ApplyClearButtonText(m_overrideClearButton);
+
             if (m_updateButton != null)
             {
                 m_updateButton.text = MateriluneL10n.Get(
@@ -1685,6 +1838,21 @@ namespace com.amari_noa.materilune.editor
 
             UpdateAddButtonStates();
             RefreshStatusBar();
+        }
+
+        private static void ApplyClearButtonText(Button clearButton)
+        {
+            if (clearButton == null)
+            {
+                return;
+            }
+
+            clearButton.text = MateriluneL10n.Get(
+                "materilune.ui.window.clear_replacements_button",
+                "Clear replacements");
+            clearButton.tooltip = MateriluneL10n.Get(
+                "materilune.ui.window.clear_replacements_tooltip",
+                "Set every replacement in this panel back to none");
         }
 
         private static void ApplyPresetRowLocalizedText(Button removeButton)

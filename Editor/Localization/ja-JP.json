@@ -57,6 +57,8 @@
         "status_summary_orphans": "（孤立エントリ {0} 件）",
         "update_button": "更新",
         "update_tooltip": "対象メッシュから置換エントリを再生成します",
+        "clear_replacements_button": "置き換えを解除",
+        "clear_replacements_tooltip": "このパネルの置き換え先をすべて解除します",
         "preset_add_tooltip": "プリセットを追加",
         "preset_remove_tooltip": "このプリセットを削除",
         "preset_remove_title": "プリセットの削除",
@@ -84,6 +86,7 @@
       "add_preset": "Materilune プリセットの追加",
       "activate_preset": "Materilune プリセットのアクティブ化",
       "deactivate_preset": "Materilune プリセットの非アクティブ化",
+      "clear_replacements": "Materilune の置き換えの解除",
       "update_entries": "Materilune のエントリの更新",
       "rebuild_entries": "Materilune の置換エントリの再生成",
       "repair_reference": "Materilune の Root 参照の修復"

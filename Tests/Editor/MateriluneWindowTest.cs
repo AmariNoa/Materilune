@@ -397,6 +397,47 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(preset.Swaps[1].From, Is.EqualTo(second));
         }
 
+        /// <summary>
+        /// Verifies clearing a panel sets every replacement back to none without removing the
+        /// entries, reaches the Material Swap component, and is taken back by one undo.
+        /// </summary>
+        [Test]
+        public void ClearingReplacementsKeepsTheEntriesAndCanBeUndone()
+        {
+            var shader = GetShader();
+            var target = CreateTarget();
+            var renderer = CreateRenderer("Renderer", target.transform);
+            var first = CreateMaterial(shader);
+            var second = CreateMaterial(shader);
+            renderer.sharedMaterials = new[] { first, second };
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var preset = manager.GetPresets()[0];
+            var replacement = CreateMaterial(shader);
+            preset.Swaps[0] = new MateriluneMaterialSwapEntry(first, replacement);
+            preset.Swaps[1] = new MateriluneMaterialSwapEntry(second, replacement);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+
+            Assert.That(m_window.IsRootClearOfferedForTests(), Is.True);
+
+            m_window.ClearRootReplacementsForTests();
+
+            Assert.That(preset.Swaps, Has.Count.EqualTo(2));
+            Assert.That(preset.Swaps[0].From, Is.EqualTo(first));
+            Assert.That(preset.Swaps[0].To, Is.Null);
+            Assert.That(preset.Swaps[1].To, Is.Null);
+            Assert.That(preset.GetComponent<ModularAvatarMaterialSwap>().Swaps, Is.Empty);
+            Assert.That(m_window.IsRootClearOfferedForTests(), Is.False);
+
+            Undo.FlushUndoRecordObjects();
+            MateriluneInspectorIsolation.PerformUndo();
+
+            Assert.That(preset.Swaps[0].To, Is.EqualTo(replacement));
+            Assert.That(preset.Swaps[1].To, Is.EqualTo(replacement));
+        }
+
         [Test]
         public void PresetAddButtonIsDisabledWhenManagerIsUnresolved()
         {

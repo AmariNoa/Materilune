@@ -57,6 +57,8 @@
         "status_summary_orphans": " (orphaned entries: {0})",
         "update_button": "Update",
         "update_tooltip": "Rebuild the replacement entries from the target meshes",
+        "clear_replacements_button": "Clear replacements",
+        "clear_replacements_tooltip": "Set every replacement in this panel back to none",
         "preset_add_tooltip": "Add preset",
         "preset_remove_tooltip": "Remove this preset",
         "preset_remove_title": "Remove preset",
@@ -84,6 +86,7 @@
       "add_preset": "Add Materilune Preset",
       "activate_preset": "Activate Materilune Preset",
       "deactivate_preset": "Deactivate Materilune Preset",
+      "clear_replacements": "Clear Materilune Replacements",
       "update_entries": "Update Materilune Entries",
       "rebuild_entries": "Rebuild Materilune Swap Entries",
       "repair_reference": "Repair Materilune Root Reference"
