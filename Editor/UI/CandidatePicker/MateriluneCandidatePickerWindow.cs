@@ -10,8 +10,11 @@ namespace com.amari_noa.materilune.editor
     /// </summary>
     internal sealed class MateriluneCandidatePickerWindow : EditorWindow
     {
-        // 320 x 280 fits the translated tabs, empty message, and a short material list without resizing.
-        private static readonly Vector2 PopupSize = new Vector2(320f, 280f);
+        // 280 high fits the tabs, the message and about eight rows without resizing. The width
+        // follows the longest name so it is not cut off, within these bounds.
+        private const float PopupHeight = 280f;
+        private const float MinPopupWidth = 320f;
+        private const float MaxPopupWidth = 700f;
 
         private Material m_current;
         private MateriluneCandidateMode m_initialTab;
@@ -42,7 +45,13 @@ namespace com.amari_noa.materilune.editor
             // the screen, so the rectangle has to be converted or the popup lands somewhere
             // unrelated to the button. ShowAsDropDown itself keeps the window on screen, putting
             // it below the rectangle when there is room and above it when there is not.
-            window.ShowAsDropDown(GUIUtility.GUIToScreenRect(buttonWorldBound), PopupSize);
+            var width = Mathf.Clamp(
+                MateriluneCandidatePickerView.MeasureRequiredWidth(current),
+                MinPopupWidth,
+                MaxPopupWidth);
+            window.ShowAsDropDown(
+                GUIUtility.GUIToScreenRect(buttonWorldBound),
+                new Vector2(width, PopupHeight));
         }
 
         private void CreateGUI()

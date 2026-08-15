@@ -30,6 +30,20 @@ namespace com.amari_noa.materilune.editor
         // material, which the discovery service never returns, so a null row is unambiguous.
         private const int ClearRowCount = 1;
 
+        // Everything a row spends beside the name: the preview slot and its margin, the row and
+        // list padding, the picker padding, and room for a vertical scroll bar.
+        private const float RowChromeWidth = 78f;
+
+        // The tabs only pay the picker padding and their own margins.
+        private const float TabChromeWidth = 20f;
+        private const float FallbackCharacterWidth = 7f;
+
+        private static readonly MateriluneCandidateMode[] SearchModes =
+        {
+            MateriluneCandidateMode.SameDirectory,
+            MateriluneCandidateMode.SiblingDirectory,
+        };
+
         private VisualElement m_tabs;
         private Button m_sameDirectoryTab;
         private Button m_siblingDirectoryTab;
@@ -150,6 +164,63 @@ namespace com.amari_noa.materilune.editor
             m_candidateList = null;
             m_emptyLabel = null;
             m_isCleared = true;
+        }
+
+        /// <summary>
+        /// Measures the width the popup needs for the longest text it will show.
+        /// </summary>
+        /// <param name="current">The material the candidates are searched around.</param>
+        /// <returns>The width in pixels, before the caller clamps it.</returns>
+        /// <remarks>
+        /// Both tabs are measured, not just the one that opens first. The popup is sized once,
+        /// when it opens, so a width that fitted only the first tab would have to change when
+        /// the other tab is selected, and the layout may not move while the user is working
+        /// (AGENTS.md 2.4 (7)).
+        /// </remarks>
+        internal static float MeasureRequiredWidth(Material current)
+        {
+            var widest = MeasureText(MateriluneL10n.Get(
+                "materilune.ui.candidate_picker.clear",
+                "None (clear the replacement)"));
+            widest = Mathf.Max(widest, MeasureText(MateriluneL10n.Get(
+                "materilune.ui.candidate_picker.empty_message",
+                "No candidate materials were found.")));
+
+            foreach (var mode in SearchModes)
+            {
+                foreach (var material in MateriluneMaterialCandidates.GetCandidates(current, mode))
+                {
+                    if (material != null)
+                    {
+                        widest = Mathf.Max(widest, MeasureText(material.name));
+                    }
+                }
+            }
+
+            // The tabs sit side by side above the list, so together they have to fit as well.
+            var tabs = MeasureText(MateriluneL10n.Get(
+                    "materilune.ui.candidate_picker.same_directory_tab",
+                    "Same directory"))
+                + MeasureText(MateriluneL10n.Get(
+                    "materilune.ui.candidate_picker.sibling_directory_tab",
+                    "Sibling directories"));
+
+            return Mathf.Max(widest + RowChromeWidth, tabs + TabChromeWidth);
+        }
+
+        private static float MeasureText(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return 0f;
+            }
+
+            // EditorStyles is unavailable very early in a domain reload, so the width falls back
+            // to a rough per-character estimate rather than throwing while a popup is opening.
+            var style = EditorStyles.label;
+            return style == null
+                ? text.Length * FallbackCharacterWidth
+                : style.CalcSize(new GUIContent(text)).x;
         }
 
         private static MateriluneCandidateMode ResolveInitialTab(MateriluneCandidateMode initialTab)
