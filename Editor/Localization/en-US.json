@@ -46,7 +46,8 @@
         "sibling_directory_tab": "Sibling directories",
         "empty_message": "No candidate materials were found.",
         "load_error": "Materilune could not load the material candidate picker UI assets.",
-        "missing_element_error": "Materilune material candidate picker UI is missing a required element."
+        "missing_element_error": "Materilune material candidate picker UI is missing a required element.",
+        "row_template_error": "Materilune could not load the material candidate row template."
       },
       "hierarchy": {
         "button_label": "Mt",
@@ -83,7 +84,26 @@
         "load_error": "Materilune could not load the window UI assets.",
         "status_order_not_guaranteed": "A Materilune setup nested in this object is being overridden by this one. Move the Materilune object to the top of the children of {0}.",
         "fix_order_label": "Fix order",
-        "fix_order_tooltip": "Move the Materilune object above the nested setups so they take effect."
+        "fix_order_tooltip": "Move the Materilune object above the nested setups so they take effect.",
+        "batch_swap_button": "Batch swap"
+      },
+      "batch_swap": {
+        "title": "Batch swap",
+        "load_error": "Materilune could not load the batch swap UI assets.",
+        "missing_element_error": "Materilune batch swap UI is missing a required element.",
+        "step_source": "Detect a pattern from one replacement and apply it to the other materials",
+        "step_plan": "Example: {0}  ->  {1}\nRule: \"{2}\" becomes \"{3}\". Tick the rows to apply.",
+        "summary": "{0} of {1} rows selected",
+        "apply": "Apply",
+        "cancel": "Cancel",
+        "row_overwrite": "{0}  ->  {1}   (replaces the current setting)",
+        "row_no_candidate": "{0}   (no candidate named {1})",
+        "row_not_matched": "{0}   (the rule does not apply)",
+        "rule_not_learned": "No pattern could be found between the two material names.",
+        "select_all": "Select all",
+        "select_none": "Select none",
+        "select_all_tooltip": "Tick every row that can be applied, including the ones that overwrite a setting",
+        "summary_sources": "{0} material(s)"
       }
     },
     "warning": {
@@ -102,7 +122,8 @@
       "update_entries": "Update Materilune Entries",
       "rebuild_entries": "Rebuild Materilune Swap Entries",
       "repair_reference": "Repair Materilune Root Reference",
-      "fix_order": "Fix Materilune Order"
+      "fix_order": "Fix Materilune Order",
+      "batch_swap": "Batch Swap Materilune Replacements"
     },
     "watcher": {
       "repaired": "Materilune repaired {0} material swap reference(s)."

@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="project://database/Packages/com.amari-noa.materilune/Editor/UI/BatchSwap/MateriluneBatchSwapView.uss" />
+    <ui:VisualElement class="materilune-batch-swap-row">
+        <ui:Toggle name="tgl-row" class="materilune-batch-swap-row__toggle" />
+        <ui:Label name="lbl-row" class="materilune-batch-swap-row__name" />
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,82 @@
+.materilune-batch-swap {
+    flex-grow: 1;
+    min-height: 0;
+    padding-top: 6px;
+    padding-right: 6px;
+    padding-bottom: 6px;
+    padding-left: 6px;
+}
+
+.materilune-batch-swap__step {
+    flex-shrink: 0;
+    white-space: normal;
+    margin-bottom: 4px;
+
+    /* Two lines: the example pair and the rule. Reserved even while the first step shows a
+       single line, so moving between the steps does not shift the list below. */
+    min-height: 30px;
+}
+
+.materilune-batch-swap__rows {
+    flex-grow: 1;
+    min-height: 0;
+    background-color: rgb(56, 56, 56);
+}
+
+/* The selection bar sits above the list and keeps its height in both steps. Choosing the
+   example needs no buttons, but a bar that appears and disappears would move the list under
+   it, and the list is what the pointer is aimed at. */
+.materilune-batch-swap__footer {
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+/* One line of text, no growing. The label used to sit in a horizontal bar, where growing
+   meant width; in the column it means height, and every spare pixel it took showed up as a
+   blank band between the list and the buttons. */
+.materilune-batch-swap__summary {
+    flex-grow: 0;
+    flex-shrink: 0;
+    min-width: 0;
+    overflow: hidden;
+    -unity-text-align: middle-left;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.materilune-batch-swap__action {
+    flex-shrink: 0;
+    min-width: 72px;
+    margin-left: 6px;
+    margin-right: 0;
+}
+
+/* One row of the list. The same row shape serves both steps: a tick, a name and, once a
+   rule is known, what the name becomes. */
+.materilune-batch-swap-row {
+    flex-direction: row;
+    align-items: center;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+.materilune-batch-swap-row__toggle {
+    flex-shrink: 0;
+    margin-right: 2px;
+    width: 16px;
+}
+
+.materilune-batch-swap-row__name {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    -unity-text-align: middle-left;
+}
+
+/* Dimmed so a row that cannot be applied reads as unavailable rather than merely unticked. */
+.materilune-batch-swap-row--unavailable > .materilune-batch-swap-row__name {
+    color: rgba(210, 210, 210, 0.5);
+}

@@ -43,6 +43,8 @@ namespace com.amari_noa.materilune.editor
         private Button m_swapButton;
         private Button m_presetAddButton;
         private Button m_rootClearButton;
+        private Button m_rootBatchButton;
+        private Button m_overrideBatchButton;
         private Button m_overrideClearButton;
         private VisualElement m_statusBar;
         private Label m_statusMessage;
@@ -239,12 +241,12 @@ namespace com.amari_noa.materilune.editor
             m_uiReady = false;
             rootVisualElement.Clear();
 
+            // The stylesheet is referenced by the uxml itself, so what the UI Builder
+            // previews is exactly what runs; the code attaches nothing.
             var visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
-            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
             m_presetRowTemplate = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(PresetRowUxmlPath);
             m_swapEntryRowTemplate = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(SwapEntryRowUxmlPath);
             if (visualTree == null
-                || styleSheet == null
                 || m_presetRowTemplate == null
                 || m_swapEntryRowTemplate == null)
             {
@@ -253,7 +255,6 @@ namespace com.amari_noa.materilune.editor
             }
 
             visualTree.CloneTree(rootVisualElement);
-            rootVisualElement.styleSheets.Add(styleSheet);
             CacheControls();
             if (!HasRequiredControls())
             {
@@ -279,6 +280,16 @@ namespace com.amari_noa.materilune.editor
             if (m_updateButton != null)
             {
                 m_updateButton.clicked += OnUpdateClicked;
+            }
+
+            if (m_rootBatchButton != null)
+            {
+                m_rootBatchButton.clicked += OnRootBatchClicked;
+            }
+
+            if (m_overrideBatchButton != null)
+            {
+                m_overrideBatchButton.clicked += OnOverrideBatchClicked;
             }
 
             if (m_rootClearButton != null)
@@ -310,6 +321,8 @@ namespace com.amari_noa.materilune.editor
             m_updateButton = rootVisualElement.Q<Button>("btn-update");
             m_fixOrderButton = rootVisualElement.Q<Button>("btn-fix-order");
             m_rootClearButton = rootVisualElement.Q<Button>("btn-clear-swap-root-entries");
+            m_rootBatchButton = rootVisualElement.Q<Button>("btn-batch-swap-settings");
+            m_overrideBatchButton = rootVisualElement.Q<Button>("btn-batch-swap-settings-mesh");
             m_overrideClearButton =
                 rootVisualElement.Q<Button>("btn-clear-swap-override-entries");
             m_presetList = rootVisualElement.Q<ListView>("lv-preset-list");
@@ -346,6 +359,8 @@ namespace com.amari_noa.materilune.editor
             m_updateButton = null;
             m_fixOrderButton = null;
             m_rootClearButton = null;
+            m_rootBatchButton = null;
+            m_overrideBatchButton = null;
             m_overrideClearButton = null;
             m_presetList = null;
             m_rootSwapList = null;
@@ -387,6 +402,16 @@ namespace com.amari_noa.materilune.editor
             if (m_updateButton != null)
             {
                 m_updateButton.clicked -= OnUpdateClicked;
+            }
+
+            if (m_rootBatchButton != null)
+            {
+                m_rootBatchButton.clicked -= OnRootBatchClicked;
+            }
+
+            if (m_overrideBatchButton != null)
+            {
+                m_overrideBatchButton.clicked -= OnOverrideBatchClicked;
             }
 
             if (m_rootClearButton != null)
@@ -751,6 +776,121 @@ namespace com.amari_noa.materilune.editor
         private void OnRootClearClicked()
         {
             ClearReplacements(m_rootSerializedObject);
+        }
+
+        private void OnRootBatchClicked()
+        {
+            var preset = m_activePreset;
+            OpenBatchSwap(
+                m_rootSerializedObject,
+                preset == null ? null : preset.Swaps,
+                preset == null ? MateriluneCandidateMode.None : preset.CandidateMode);
+        }
+
+        private void OnOverrideBatchClicked()
+        {
+            var operationOverride = FindOverride(m_activePreset, m_selectedRenderer);
+            OpenBatchSwap(
+                m_overrideSerializedObject,
+                operationOverride == null ? null : operationOverride.Swaps,
+                operationOverride == null
+                    ? MateriluneCandidateMode.None
+                    : operationOverride.CandidateMode);
+        }
+
+        /// <summary>
+        /// Opens the batch replacement window for one panel.
+        /// </summary>
+        /// <param name="serializedObject">The component the panel edits.</param>
+        /// <param name="entries">The entries of that component.</param>
+        /// <param name="mode">The candidate discovery mode of that component.</param>
+        /// <remarks>
+        /// The window decides nothing on its own; it hands back the rows the user approved and
+        /// those are written here, where the serialized object and the undo group live.
+        /// </remarks>
+        private void OpenBatchSwap(
+            SerializedObject serializedObject,
+            IReadOnlyList<MateriluneMaterialSwapEntry> entries,
+            MateriluneCandidateMode mode)
+        {
+            if (serializedObject == null || serializedObject.targetObject == null || entries == null)
+            {
+                return;
+            }
+
+            MateriluneBatchSwapWindow.Open(
+                entries,
+                mode,
+                approved => ApplyBatchSwap(serializedObject, approved));
+        }
+
+        private void ApplyBatchSwap(
+            SerializedObject serializedObject,
+            IReadOnlyList<MateriluneBatchSwapPlanItem> approved)
+        {
+            var manager = ResolvedManager;
+            if (manager == null
+                || serializedObject == null
+                || serializedObject.targetObject == null
+                || approved == null
+                || approved.Count == 0)
+            {
+                return;
+            }
+
+            serializedObject.Update();
+            var swapsProperty = serializedObject.FindProperty("m_swaps");
+            if (swapsProperty == null || !swapsProperty.isArray)
+            {
+                return;
+            }
+
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName(MateriluneL10n.Get(
+                "materilune.undo.batch_swap",
+                "Batch Swap Materilune Replacements"));
+            var changed = false;
+            try
+            {
+                foreach (var item in approved)
+                {
+                    if (item == null || item.Index < 0 || item.Index >= swapsProperty.arraySize)
+                    {
+                        continue;
+                    }
+
+                    // The source is checked again rather than trusted: the window is not modal
+                    // to the scene, so the entries could have been rebuilt while it was open.
+                    var entryProperty = swapsProperty.GetArrayElementAtIndex(item.Index);
+                    var fromProperty = entryProperty.FindPropertyRelative("m_from");
+                    var toProperty = entryProperty.FindPropertyRelative("m_to");
+                    if (fromProperty == null
+                        || toProperty == null
+                        || fromProperty.objectReferenceValue != item.From)
+                    {
+                        continue;
+                    }
+
+                    toProperty.objectReferenceValue = item.To;
+                }
+
+                changed = serializedObject.ApplyModifiedProperties();
+                if (changed)
+                {
+                    MarkObjectDirty(serializedObject.targetObject);
+                    MateriluneSwapSynchronizer.Sync(manager);
+                }
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            if (changed)
+            {
+                Rebuild();
+            }
         }
 
         private void OnOverrideClearClicked()
@@ -1958,6 +2098,8 @@ namespace com.amari_noa.materilune.editor
 
             ApplyClearButtonText(m_rootClearButton);
             ApplyClearButtonText(m_overrideClearButton);
+            ApplyBatchButtonText(m_rootBatchButton);
+            ApplyBatchButtonText(m_overrideBatchButton);
 
             if (m_fixOrderButton != null)
             {
@@ -2014,6 +2156,18 @@ namespace com.amari_noa.materilune.editor
 
             UpdateAddButtonStates();
             RefreshStatusBar();
+        }
+
+        private static void ApplyBatchButtonText(Button batchButton)
+        {
+            if (batchButton == null)
+            {
+                return;
+            }
+
+            batchButton.text = MateriluneL10n.Get(
+                "materilune.ui.window.batch_swap_button",
+                "Batch swap");
         }
 
         private static void ApplyClearButtonText(Button clearButton)

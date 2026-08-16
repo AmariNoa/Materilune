@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="True">
+    <Style src="project://database/Packages/com.amari-noa.materilune/Editor/UI/Window/MateriluneWindowLayout.uss" />
     <ui:VisualElement style="flex-grow: 1; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px;">
         <ui:VisualElement name="elm-header" style="flex-grow: 1; height: 40px; max-height: 40px; min-height: 40px; flex-direction: row;">
             <ui:VisualElement style="flex-grow: 1;">
@@ -32,7 +33,10 @@
                     <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0; width: 40%; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;">
                         <ui:Label tabindex="-1" text="Materilune Swap Root Component" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
                         <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
+                        <ui:Button text="Batch swap" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btn-batch-swap-settings" />
+                        <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
                         <ui:ListView name="lv-swap-root-entries" style="flex-grow: 1; min-height: 0; background-color: rgb(108, 108, 108); padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;" />
+                        <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
                         <ui:Button text="Clear Root Swap Settings" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btn-clear-swap-root-entries" />
                     </ui:VisualElement>
                     <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0; width: 20%; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;">
@@ -43,7 +47,10 @@
                     <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0; width: 40%; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;">
                         <ui:Label tabindex="-1" text="Materilune Swap Override Details" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
                         <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
+                        <ui:Button text="Batch swap" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btn-batch-swap-settings-mesh" />
+                        <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
                         <ui:ListView name="lv-swap-override-entries" style="flex-grow: 1; min-height: 0; background-color: rgb(109, 109, 109); padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;" />
+                        <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
                         <ui:Button text="Clear Root Swap Settings" parse-escape-sequences="true" display-tooltip-when-elided="true" name="btn-clear-swap-override-entries" />
                     </ui:VisualElement>
                 </ui:VisualElement>

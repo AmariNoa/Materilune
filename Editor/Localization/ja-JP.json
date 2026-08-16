@@ -46,7 +46,8 @@
         "sibling_directory_tab": "兄弟ディレクトリ",
         "empty_message": "候補のマテリアルが見つかりません。",
         "load_error": "Materilune のマテリアル候補選択 UI アセットを読み込めませんでした。",
-        "missing_element_error": "Materilune のマテリアル候補選択 UI に必要な要素が見つかりません。"
+        "missing_element_error": "Materilune のマテリアル候補選択 UI に必要な要素が見つかりません。",
+        "row_template_error": "Materilune はマテリアル候補の行テンプレートを読み込めませんでした。"
       },
       "hierarchy": {
         "button_label": "Mt",
@@ -83,7 +84,26 @@
         "load_error": "Materilune のウィンドウ UI アセットを読み込めませんでした。",
         "status_order_not_guaranteed": "このオブジェクトの設定が、配下の入れ子の Materilune 設定を上書きしています。Materilune オブジェクトを {0} の子の一番上へ移動してください。",
         "fix_order_label": "順序を修正",
-        "fix_order_tooltip": "配下の入れ子の設定が効くよう、Materilune オブジェクトを上へ移動します。"
+        "fix_order_tooltip": "配下の入れ子の設定が効くよう、Materilune オブジェクトを上へ移動します。",
+        "batch_swap_button": "一括置換"
+      },
+      "batch_swap": {
+        "title": "一括置換",
+        "load_error": "Materilune は一括置換の UI アセットを読み込めませんでした。",
+        "missing_element_error": "Materilune の一括置換 UI に必要な要素がありません。",
+        "step_source": "1 セットの置換設定からパターンを検出し、他のマテリアルへまとめて適用します",
+        "step_plan": "見本: {0}  ->  {1}\n規則: 「{2}」を「{3}」へ置換します。適用する行にチェックを入れてください。",
+        "summary": "{1} 件中 {0} 件を選択中",
+        "apply": "適用",
+        "cancel": "中止",
+        "row_overwrite": "{0}  ->  {1}   (既存の設定を上書きします)",
+        "row_no_candidate": "{0}   ({1} という候補が見つかりません)",
+        "row_not_matched": "{0}   (規則に一致しません)",
+        "rule_not_learned": "2つのマテリアル名に規則性が見つかりませんでした。",
+        "select_all": "全選択",
+        "select_none": "全解除",
+        "select_all_tooltip": "適用できる行をすべて選択します（既存の設定を上書きする行も含みます）",
+        "summary_sources": "マテリアル {0} 件"
       }
     },
     "warning": {
@@ -102,7 +122,8 @@
       "update_entries": "Materilune のエントリの更新",
       "rebuild_entries": "Materilune の置換エントリの再生成",
       "repair_reference": "Materilune の Root 参照の修復",
-      "fix_order": "Materilune の順序を修正"
+      "fix_order": "Materilune の順序を修正",
+      "batch_swap": "Materilune の置換先を一括設定"
     },
     "watcher": {
       "repaired": "Materilune はマテリアル差し替えの参照を {0} 件修復しました。"
