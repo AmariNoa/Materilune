@@ -74,6 +74,15 @@ namespace com.amari_noa.materilune.editor
 
         private void CreateGUI()
         {
+            // A domain reload rebuilds the window but not this state: the entries and the
+            // callback live only in memory, and without them the window can neither show nor
+            // apply anything. Closing is the honest outcome; the button reopens it in one press.
+            if (m_entries == null)
+            {
+                EditorApplication.delayCall += Close;
+                return;
+            }
+
             rootVisualElement.Clear();
             // The stylesheet is referenced by the uxml itself, so what the UI Builder
             // previews is exactly what runs; the code attaches nothing.

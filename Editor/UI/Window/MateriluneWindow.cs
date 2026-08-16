@@ -818,17 +818,21 @@ namespace com.amari_noa.materilune.editor
                 return;
             }
 
+            // The manager is captured now, not read again when the window comes back:
+            // the selection may have moved to another setup in the meantime, and syncing
+            // that one while writing to this one would tear the two apart.
+            var manager = ResolvedManager;
             MateriluneBatchSwapWindow.Open(
                 entries,
                 mode,
-                approved => ApplyBatchSwap(serializedObject, approved));
+                approved => ApplyBatchSwap(serializedObject, manager, approved));
         }
 
         private void ApplyBatchSwap(
             SerializedObject serializedObject,
+            MateriluneSwap manager,
             IReadOnlyList<MateriluneBatchSwapPlanItem> approved)
         {
-            var manager = ResolvedManager;
             if (manager == null
                 || serializedObject == null
                 || serializedObject.targetObject == null
@@ -855,7 +859,13 @@ namespace com.amari_noa.materilune.editor
             {
                 foreach (var item in approved)
                 {
-                    if (item == null || item.Index < 0 || item.Index >= swapsProperty.arraySize)
+                    // item.From is checked through Unity's lifetime-aware null too: a source
+                    // destroyed since planning would compare equal to a stale property value
+                    // by fake-null coincidence, and the row would be written on a dead match.
+                    if (item == null
+                        || item.From == null
+                        || item.Index < 0
+                        || item.Index >= swapsProperty.arraySize)
                     {
                         continue;
                     }

@@ -7,13 +7,16 @@
     padding-left: 6px;
 }
 
+/* Two lines: the example pair and the rule, one 
+ apart. Reserved even while the first
+   step shows a single line, and never more: nowrap keeps a long material name from folding
+   into a third line and pushing the list down, which the layout rule forbids. The full
+   names remain readable in the list itself. */
 .materilune-batch-swap__step {
     flex-shrink: 0;
-    white-space: normal;
+    white-space: nowrap;
+    overflow: hidden;
     margin-bottom: 4px;
-
-    /* Two lines: the example pair and the rule. Reserved even while the first step shows a
-       single line, so moving between the steps does not shift the list below. */
     min-height: 30px;
 }
 
@@ -76,7 +79,9 @@
     -unity-text-align: middle-left;
 }
 
-/* Dimmed so a row that cannot be applied reads as unavailable rather than merely unticked. */
-.materilune-batch-swap-row--unavailable > .materilune-batch-swap-row__name {
+/* Dimmed so a row that cannot be applied reads as unavailable rather than merely unticked.
+   A descendant selector, not a child one: the class lands on the wrapper the list makes for
+   each row, and the label sits a level below the templated row inside it. */
+.materilune-batch-swap-row--unavailable .materilune-batch-swap-row__name {
     color: rgba(210, 210, 210, 0.5);
 }
