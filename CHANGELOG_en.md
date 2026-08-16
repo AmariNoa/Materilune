@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.1.0-beta.2] - 2026-08-16
+
+### Added
+
+- A nested setup now shows what the setup enclosing it already replaces. A row with no replacement of its own shows the inherited one over its empty field, and a row that has both names the inherited one in its tooltip. The display is read-only.
+- The window reports when the sibling order stops a nested setup from taking effect, and offers a button that puts the order right.
+
+### Fixed
+
+- A setup nested inside another one no longer loses to the outer one. Modular Avatar keeps the component it reaches last, so the Materilune object is moved to the front of its siblings. Where a prefab refuses the move, it goes as far as it can and says so; the prefab is never unpacked to force it.
+
 ## [0.1.0-beta.1] - 2026-08-16
 
 The first public release.
