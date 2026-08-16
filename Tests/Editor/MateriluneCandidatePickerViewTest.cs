@@ -185,6 +185,30 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(preview.userData, Is.SameAs(current));
         }
 
+        /// <summary>
+        /// Verifies the measured width follows the longest name the popup will show, so a name
+        /// is not cut off. The window clamps the result, which is why this checks the raw
+        /// measurement rather than a final size.
+        /// </summary>
+        [Test]
+        public void MeasuredWidthGrowsWithTheLongestCandidateName()
+        {
+            var shortDirectory = CreateFolder(m_testDirectory, "Short");
+            var shortNamed = CreateMaterial(shortDirectory, "A.mat");
+
+            var narrow = MateriluneCandidatePickerView.MeasureRequiredWidth(shortNamed);
+
+            var longDirectory = CreateFolder(m_testDirectory, "Long");
+            var longNamed = CreateMaterial(
+                longDirectory,
+                "A_very_long_material_name_that_does_not_fit_the_default_popup_width.mat");
+
+            var wide = MateriluneCandidatePickerView.MeasureRequiredWidth(longNamed);
+
+            Assert.That(wide, Is.GreaterThan(narrow));
+            Assert.That(wide, Is.GreaterThan(320f));
+        }
+
         private static List<Material> GetMaterials(ListView list)
         {
             var materials = new List<Material>();

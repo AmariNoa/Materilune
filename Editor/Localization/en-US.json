@@ -46,6 +46,13 @@
         "load_error": "Materilune could not load the material candidate picker UI assets.",
         "missing_element_error": "Materilune material candidate picker UI is missing a required element."
       },
+      "hierarchy": {
+        "button_label": "Mt",
+        "button_tooltip": "Open Materilune",
+        "settings_page_label": "Hierarchy Buttons",
+        "extra_offset_label": "Extra offset",
+        "extra_offset_description": "Adds horizontal space to the left of the shared Hierarchy buttons."
+      },
       "window": {
         "title": "Materilune",
         "target_label": "Target",
@@ -57,6 +64,8 @@
         "status_summary_orphans": " (orphaned entries: {0})",
         "update_button": "Update",
         "update_tooltip": "Rebuild the replacement entries from the target meshes",
+        "clear_replacements_button": "Clear replacements",
+        "clear_replacements_tooltip": "Set every replacement in this panel back to none",
         "preset_add_tooltip": "Add preset",
         "preset_remove_tooltip": "Remove this preset",
         "preset_remove_title": "Remove preset",
@@ -84,6 +93,7 @@
       "add_preset": "Add Materilune Preset",
       "activate_preset": "Activate Materilune Preset",
       "deactivate_preset": "Deactivate Materilune Preset",
+      "clear_replacements": "Clear Materilune Replacements",
       "update_entries": "Update Materilune Entries",
       "rebuild_entries": "Rebuild Materilune Swap Entries",
       "repair_reference": "Repair Materilune Root Reference"

@@ -17,6 +17,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "jp.suzuryg.face-emo",
+            "expression": "",
+            "define": "MATERILUNE_FACEEMO_INSTALLED"
+        }
+    ],
     "noEngineReferences": false
 }
