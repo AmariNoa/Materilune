@@ -220,6 +220,108 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(operationObject, Is.Not.Null);
         }
 
+        /// <summary>
+        /// Verifies the marker is placed ahead of the target's other children.
+        /// </summary>
+        /// <remarks>
+        /// Material Swap gives a contested material to the component it reaches last, and it
+        /// reaches a parent's children in order, so a setup nested under a later child has to
+        /// come after this one to win.
+        /// </remarks>
+        [Test]
+        public void SetupPutsTheMarkerAheadOfTheOtherChildren()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform, CreateMaterial(GetShader()));
+
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+
+            Assert.That(manager.transform.parent.GetSiblingIndex(), Is.Zero);
+        }
+
+        /// <summary>
+        /// Verifies a marker left behind at the end by an earlier version is moved forward.
+        /// </summary>
+        [Test]
+        public void SetupMovesAnExistingMarkerToTheFront()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform, CreateMaterial(GetShader()));
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            var marker = manager.transform.parent;
+            marker.SetAsLastSibling();
+            Assert.That(marker.GetSiblingIndex(), Is.Not.Zero, "the marker should start out of place");
+
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+
+            Assert.That(marker.GetSiblingIndex(), Is.Zero);
+        }
+
+        /// <summary>
+        /// Verifies undoing a setup also puts the sibling order back.
+        /// </summary>
+        /// <remarks>
+        /// Moving the marker rearranges the target's children, which is a change to the scene
+        /// like any other and has to come back with the rest of the setup.
+        /// </remarks>
+        [Test]
+        public void SetupUndoRestoresTheOriginalSiblingOrder()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform, CreateMaterial(GetShader()));
+            var marker = CreateGameObject("Materilune", target.transform);
+            marker.AddComponent<Materilune>();
+            marker.transform.SetAsLastSibling();
+            var originalIndex = marker.transform.GetSiblingIndex();
+
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            Undo.FlushUndoRecordObjects();
+            Assert.That(marker.transform.GetSiblingIndex(), Is.Zero, "the setup should move the marker");
+
+            MateriluneInspectorIsolation.PerformUndo();
+            Assert.That(marker.transform.GetSiblingIndex(), Is.EqualTo(originalIndex));
+
+            MateriluneInspectorIsolation.PerformRedo();
+
+            Assert.That(marker.transform.GetSiblingIndex(), Is.Zero);
+        }
+
+        /// <summary>
+        /// Verifies the order is called good when nothing ahead of the marker holds a setup.
+        /// </summary>
+        /// <remarks>
+        /// Being at the front is sufficient but not necessary, so a marker that sits after
+        /// ordinary objects must not be reported as a problem.
+        /// </remarks>
+        [Test]
+        public void OrderIsGuaranteedWhenNothingAheadHoldsASetup()
+        {
+            var target = CreateTarget();
+            var marker = CreateGameObject("Materilune", target.transform);
+            var component = marker.AddComponent<Materilune>();
+            CreateGameObject("Plain", target.transform).transform.SetAsFirstSibling();
+
+            Assert.That(MateriluneMarkerOrdering.IsOrderGuaranteed(component), Is.True);
+        }
+
+        /// <summary>
+        /// Verifies a nested setup ahead of the marker is reported.
+        /// </summary>
+        [Test]
+        public void OrderIsNotGuaranteedWhenANestedSetupComesFirst()
+        {
+            var target = CreateTarget();
+            var marker = CreateGameObject("Materilune", target.transform);
+            var component = marker.AddComponent<Materilune>();
+            var outfit = CreateGameObject("Outfit", target.transform);
+            CreateGameObject("Materilune", outfit.transform).AddComponent<Materilune>();
+            outfit.transform.SetAsFirstSibling();
+
+            Assert.That(MateriluneMarkerOrdering.IsOrderGuaranteed(component), Is.False);
+        }
+
         [Test]
         public void SetupUndoAndRedoRestoreManagerAndPreset()
         {

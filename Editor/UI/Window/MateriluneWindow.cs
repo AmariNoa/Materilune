@@ -47,6 +47,7 @@ namespace com.amari_noa.materilune.editor
         private VisualElement m_statusBar;
         private Label m_statusMessage;
         private Button m_updateButton;
+        private Button m_fixOrderButton;
         private ListView m_presetList;
         private ListView m_rootSwapList;
         private TreeView m_overrideTree;
@@ -270,6 +271,11 @@ namespace com.amari_noa.materilune.editor
             m_presetList.selectionChanged += OnPresetSelectionChanged;
             m_overrideTree.selectionChanged += OnTreeSelectionChanged;
             m_presetAddButton.clicked += OnPresetAddClicked;
+            if (m_fixOrderButton != null)
+            {
+                m_fixOrderButton.clicked += OnFixOrderClicked;
+            }
+
             if (m_updateButton != null)
             {
                 m_updateButton.clicked += OnUpdateClicked;
@@ -302,6 +308,7 @@ namespace com.amari_noa.materilune.editor
             m_statusBar = rootVisualElement.Q<VisualElement>("elm-status-bar");
             m_statusMessage = rootVisualElement.Q<Label>("lbl-status-message");
             m_updateButton = rootVisualElement.Q<Button>("btn-update");
+            m_fixOrderButton = rootVisualElement.Q<Button>("btn-fix-order");
             m_rootClearButton = rootVisualElement.Q<Button>("btn-clear-swap-root-entries");
             m_overrideClearButton =
                 rootVisualElement.Q<Button>("btn-clear-swap-override-entries");
@@ -337,6 +344,7 @@ namespace com.amari_noa.materilune.editor
             m_statusBar = null;
             m_statusMessage = null;
             m_updateButton = null;
+            m_fixOrderButton = null;
             m_rootClearButton = null;
             m_overrideClearButton = null;
             m_presetList = null;
@@ -369,6 +377,11 @@ namespace com.amari_noa.materilune.editor
             if (m_presetAddButton != null)
             {
                 m_presetAddButton.clicked -= OnPresetAddClicked;
+            }
+
+            if (m_fixOrderButton != null)
+            {
+                m_fixOrderButton.clicked -= OnFixOrderClicked;
             }
 
             if (m_updateButton != null)
@@ -619,23 +632,53 @@ namespace com.amari_noa.materilune.editor
             var manager = ResolvedManager;
             var target = manager == null ? null : GetTargetObject(manager);
             var needsUpdate = target != null && MateriluneSwapEntries.NeedsUpdate(manager);
+            var orderBroken = target != null && !MateriluneMarkerOrdering.IsOrderGuaranteed(FindMarker(manager));
 
             if (m_statusMessage != null)
             {
-                m_statusMessage.text = GetStatusMessage(manager, target, needsUpdate);
+                m_statusMessage.text = GetStatusMessage(manager, target, needsUpdate, orderBroken);
             }
 
-            m_statusBar.EnableInClassList(StatusWarningClass, needsUpdate);
+            m_statusBar.EnableInClassList(StatusWarningClass, needsUpdate || orderBroken);
+            // These two are the one place in the window where a control is taken out of the
+            // layout rather than just hidden. Keeping their space reserved leaves a gap at the
+            // right end of the bar whenever only one of them applies, and the buttons are
+            // wanted flush against that end (2026-08-16 の指示). They sit at the far right,
+            // past everything else, so what moves when one appears is the other button and the
+            // length of the message, not any control the row is built around.
             if (m_updateButton != null)
             {
-                m_updateButton.style.visibility = needsUpdate
-                    ? Visibility.Visible
-                    : Visibility.Hidden;
+                m_updateButton.style.display = needsUpdate ? DisplayStyle.Flex : DisplayStyle.None;
                 m_updateButton.SetEnabled(needsUpdate);
+            }
+
+            if (m_fixOrderButton != null)
+            {
+                m_fixOrderButton.style.display = orderBroken ? DisplayStyle.Flex : DisplayStyle.None;
+                m_fixOrderButton.SetEnabled(orderBroken);
             }
         }
 
-        private string GetStatusMessage(MateriluneSwap manager, GameObject target, bool needsUpdate)
+        /// <summary>
+        /// Finds the marker of a setup from its manager.
+        /// </summary>
+        /// <param name="manager">The manager of the setup.</param>
+        /// <returns>The marker, or <see langword="null" /> when the manager has none.</returns>
+        /// <remarks>
+        /// The manager is placed directly under the marker by setup, so the parent is it. The
+        /// component is what identifies it, never the object's name.
+        /// </remarks>
+        private static Materilune FindMarker(MateriluneSwap manager)
+        {
+            var parent = manager == null ? null : manager.transform.parent;
+            return parent == null ? null : parent.GetComponent<Materilune>();
+        }
+
+        private string GetStatusMessage(
+            MateriluneSwap manager,
+            GameObject target,
+            bool needsUpdate,
+            bool orderBroken)
         {
             if (GetCandidate() == null)
             {
@@ -649,6 +692,19 @@ namespace com.amari_noa.materilune.editor
                 return MateriluneL10n.Get(
                     "materilune.ui.window.status_not_set_up",
                     "Materilune is not set up on this object.");
+            }
+
+            // A broken order is reported ahead of everything else. While it holds, the
+            // settings shown here are not the ones the avatar wears, which makes any other
+            // message on this line misleading.
+            if (orderBroken)
+            {
+                return string.Format(
+                    MateriluneL10n.Get(
+                        "materilune.ui.window.status_order_not_guaranteed",
+                        "A Materilune setup nested in this object is being overridden by this one. "
+                        + "Move the Materilune object to the top of the children of {0}."),
+                    target.name);
             }
 
             // The warning replaces the summary rather than joining it. It is the one state that
@@ -762,6 +818,53 @@ namespace com.amari_noa.materilune.editor
             }
         }
 
+        /// <summary>
+        /// Moves the setup's marker up until the nested setups below it are reached later.
+        /// </summary>
+        /// <remarks>
+        /// Setup already tries this, so the button exists for the state left behind when the
+        /// scene refused the move at the time: once the obstacle is gone, pressing it fixes the
+        /// order without setting the whole hierarchy up again. It only reorders siblings, and a
+        /// scene that still refuses keeps the warning rather than being forced.
+        /// </remarks>
+        private void OnFixOrderClicked()
+        {
+            var manager = ResolvedManager;
+            var marker = FindMarker(manager);
+            if (marker == null)
+            {
+                Rebuild();
+                return;
+            }
+
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName(MateriluneL10n.Get(
+                "materilune.undo.fix_order",
+                "Fix Materilune Order"));
+            try
+            {
+                MateriluneMarkerOrdering.MoveAsFarUpAsPossible(marker);
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            if (!MateriluneMarkerOrdering.IsOrderGuaranteed(marker))
+            {
+                Debug.LogWarning(string.Format(
+                    MateriluneL10n.Get(
+                        "materilune.setup.order_not_guaranteed",
+                        "Materilune could not move its object to the front of {0}. A Materilune setup "
+                        + "nested inside an object listed before it will not take effect. Move the "
+                        + "Materilune object to the top of the children of {0} by hand."),
+                    marker.transform.parent == null ? string.Empty : marker.transform.parent.name));
+            }
+
+            Rebuild();
+        }
+
         private void OnUpdateClicked()
         {
             var manager = ResolvedManager;
@@ -801,7 +904,18 @@ namespace com.amari_noa.materilune.editor
         internal bool IsUpdateOfferedForTests()
         {
             return m_updateButton != null
-                && m_updateButton.style.visibility.value == Visibility.Visible;
+                && m_updateButton.style.display.value == DisplayStyle.Flex;
+        }
+
+        internal bool IsOrderFixOfferedForTests()
+        {
+            return m_fixOrderButton != null
+                && m_fixOrderButton.style.display.value == DisplayStyle.Flex;
+        }
+
+        internal void FixOrderForTests()
+        {
+            OnFixOrderClicked();
         }
 
         internal string GetStatusMessageForTests()
@@ -1844,6 +1958,16 @@ namespace com.amari_noa.materilune.editor
 
             ApplyClearButtonText(m_rootClearButton);
             ApplyClearButtonText(m_overrideClearButton);
+
+            if (m_fixOrderButton != null)
+            {
+                m_fixOrderButton.text = MateriluneL10n.Get(
+                    "materilune.ui.window.fix_order_label",
+                    "Fix order");
+                m_fixOrderButton.tooltip = MateriluneL10n.Get(
+                    "materilune.ui.window.fix_order_tooltip",
+                    "Move the Materilune object above the nested setups so they take effect.");
+            }
 
             if (m_updateButton != null)
             {

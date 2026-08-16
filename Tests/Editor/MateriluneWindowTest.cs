@@ -88,6 +88,55 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(m_window.ResolvedManager, Is.Not.SameAs(outerManager));
         }
 
+        /// <summary>
+        /// Verifies the window offers to fix the order only while the order is actually wrong.
+        /// </summary>
+        /// <remarks>
+        /// While a nested setup is reached before this one, the settings shown are not the ones
+        /// the avatar wears, so the window has to say so and offer a way out.
+        /// </remarks>
+        [Test]
+        public void TheWindowOffersToFixAMarkerThatSitsBehindANestedSetup()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var outfit = CreateGameObject("Outfit", target.transform);
+            CreateRenderer("OutfitRenderer", outfit.transform);
+            MateriluneSetupService.Setup(outfit, MateriluneOrphanAction.Keep);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+            Assert.That(m_window.IsOrderFixOfferedForTests(), Is.False, "the setup should leave the order right");
+
+            manager.transform.parent.SetAsLastSibling();
+            m_window.SetTargetForTests(target);
+
+            Assert.That(m_window.IsOrderFixOfferedForTests(), Is.True);
+        }
+
+        /// <summary>
+        /// Verifies the offer to fix the order goes away once the order has been fixed.
+        /// </summary>
+        [Test]
+        public void FixingTheOrderPutsTheMarkerBackInFront()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var outfit = CreateGameObject("Outfit", target.transform);
+            CreateRenderer("OutfitRenderer", outfit.transform);
+            MateriluneSetupService.Setup(outfit, MateriluneOrphanAction.Keep);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var marker = manager.transform.parent;
+            marker.SetAsLastSibling();
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            m_window.FixOrderForTests();
+
+            Assert.That(marker.GetSiblingIndex(), Is.Zero);
+            Assert.That(m_window.IsOrderFixOfferedForTests(), Is.False);
+        }
+
         [Test]
         public void SetTargetResolvesSetupManagerFromTarget()
         {

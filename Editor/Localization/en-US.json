@@ -15,7 +15,8 @@
       "error": {
         "no_target": "No target object is selected.",
         "no_renderer": "No renderer was found under the target object."
-      }
+      },
+      "order_not_guaranteed": "Materilune could not move its object to the front of {0}. A Materilune setup nested inside an object listed before it will not take effect. Move the Materilune object to the top of the children of {0} by hand."
     },
     "inspector": {
       "open_window": "Open in Materilune Window",
@@ -79,7 +80,10 @@
         "setup_message": "Materilune is not set up on this object yet.",
         "setup_button": "Run setup",
         "empty_message": "Select an avatar or outfit object in the hierarchy.",
-        "load_error": "Materilune could not load the window UI assets."
+        "load_error": "Materilune could not load the window UI assets.",
+        "status_order_not_guaranteed": "A Materilune setup nested in this object is being overridden by this one. Move the Materilune object to the top of the children of {0}.",
+        "fix_order_label": "Fix order",
+        "fix_order_tooltip": "Move the Materilune object above the nested setups so they take effect."
       }
     },
     "warning": {
@@ -97,7 +101,8 @@
       "clear_replacements": "Clear Materilune Replacements",
       "update_entries": "Update Materilune Entries",
       "rebuild_entries": "Rebuild Materilune Swap Entries",
-      "repair_reference": "Repair Materilune Root Reference"
+      "repair_reference": "Repair Materilune Root Reference",
+      "fix_order": "Fix Materilune Order"
     },
     "watcher": {
       "repaired": "Materilune repaired {0} material swap reference(s)."

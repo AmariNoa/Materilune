@@ -164,6 +164,11 @@ namespace com.amari_noa.materilune.editor
             try
             {
                 var manager = setupState.Manager ?? CreateManager(setupState.Target);
+
+                // Runs on every setup, not only the one that makes the marker: setups made
+                // before this rule existed have their marker at the end of the siblings, and
+                // that is exactly the arrangement that has to be corrected.
+                EnsureMarkerOrder(setupState.Target, manager);
                 if (setupState.Renderers.Count == 0)
                 {
                     Debug.LogWarning(MateriluneL10n.Get(
@@ -353,6 +358,42 @@ namespace com.amari_noa.materilune.editor
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Puts the marker ahead of the target's other children and reports when it cannot.
+        /// </summary>
+        /// <param name="target">The object the setup belongs to.</param>
+        /// <param name="manager">The resolved preset manager.</param>
+        /// <remarks>
+        /// Material Swap gives a contested material to whichever component the hierarchy walk
+        /// reaches last, so a setup nested inside this target has to be reached after this one.
+        /// A prefab instance may refuse to keep an added object ahead of the ones the prefab
+        /// owns; that is reported rather than forced, since unpacking the prefab to win the
+        /// argument would cost far more than the ordering is worth.
+        /// </remarks>
+        private static void EnsureMarkerOrder(GameObject target, MateriluneSwap manager)
+        {
+            var markerTransform = manager == null ? null : manager.transform.parent;
+            var marker = markerTransform == null ? null : markerTransform.GetComponent<Materilune>();
+            if (marker == null)
+            {
+                return;
+            }
+
+            MateriluneMarkerOrdering.MoveAsFarUpAsPossible(marker);
+            if (MateriluneMarkerOrdering.IsOrderGuaranteed(marker))
+            {
+                return;
+            }
+
+            Debug.LogWarning(string.Format(
+                MateriluneL10n.Get(
+                    "materilune.setup.order_not_guaranteed",
+                    "Materilune could not move its object to the front of {0}. A Materilune setup "
+                    + "nested inside an object listed before it will not take effect. Move the "
+                    + "Materilune object to the top of the children of {0} by hand."),
+                target.name));
         }
 
         private static MateriluneSwap CreateManager(GameObject target)
