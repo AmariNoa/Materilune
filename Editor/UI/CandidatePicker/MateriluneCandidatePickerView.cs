@@ -23,7 +23,6 @@ namespace com.amari_noa.materilune.editor
         // Tall enough for a legible material preview beside the name. The preview keeps its
         // square slot whether or not the thumbnail has been generated yet, so the rows never
         // change height (AGENTS.md 2.4 (7)).
-        private const float CandidateRowHeight = 32f;
         private const long PreviewPollMilliseconds = 100;
 
         // The list always starts with a row that clears the replacement. It is carried as a null
@@ -61,9 +60,10 @@ namespace com.amari_noa.materilune.editor
         /// </summary>
         internal MateriluneCandidatePickerView()
         {
+            // The stylesheet is referenced by the uxml itself, so what the UI Builder
+            // previews is exactly what runs; the code attaches nothing.
             var visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
-            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
-            if (visualTree == null || styleSheet == null)
+            if (visualTree == null)
             {
                 Debug.LogError(MateriluneL10n.Get(
                     "materilune.ui.candidate_picker.load_error",
@@ -72,7 +72,6 @@ namespace com.amari_noa.materilune.editor
             }
 
             visualTree.CloneTree(this);
-            styleSheets.Add(styleSheet);
 
             m_tabs = this.Q<VisualElement>("elm-tabs");
             m_sameDirectoryTab = this.Q<Button>("btn-tab-same-directory");
@@ -91,7 +90,6 @@ namespace com.amari_noa.materilune.editor
             m_rowTemplate = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(RowUxmlPath);
             m_candidateList.makeItem = MakeCandidateItem;
             m_candidateList.bindItem = BindCandidateItem;
-            m_candidateList.fixedItemHeight = CandidateRowHeight;
             m_candidateList.selectionType = SelectionType.Single;
             m_candidateList.selectionChanged += OnCandidateSelectionChanged;
             m_sameDirectoryTab.clicked += OnSameDirectoryTabClicked;
@@ -239,12 +237,15 @@ namespace com.amari_noa.materilune.editor
 
         private VisualElement MakeCandidateItem()
         {
+            // The template is the only source of the row's layout. Building a substitute row
+            // here would put layout back into code, which this project keeps out of it; a
+            // missing template is a broken installation and is reported as such instead.
             var row = new VisualElement();
             if (m_rowTemplate == null)
             {
-                // Without the template the list still has to show the names, so the row falls
-                // back to a bare label rather than leaving the popup empty.
-                row.Add(new Label { name = "lbl-material-name" });
+                Debug.LogError(MateriluneL10n.Get(
+                    "materilune.ui.candidate_picker.row_template_error",
+                    "Materilune could not load the material candidate row template."));
                 return row;
             }
 

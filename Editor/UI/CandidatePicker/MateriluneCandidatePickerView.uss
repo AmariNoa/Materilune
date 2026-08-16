@@ -1,3 +1,6 @@
+/* The popup floats over whatever the user was looking at, and without an outline its edge
+   dissolves into windows of the same shade behind it. The border colour follows the editor
+   theme's own window border, so it reads as a frame in both themes. */
 .materilune-candidate-picker {
     flex-grow: 1;
     flex-direction: column;
@@ -5,6 +8,14 @@
     padding-right: 6px;
     padding-bottom: 6px;
     padding-left: 6px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-top-color: var(--unity-colors-window-border);
+    border-right-color: var(--unity-colors-window-border);
+    border-bottom-color: var(--unity-colors-window-border);
+    border-left-color: var(--unity-colors-window-border);
 }
 
 .materilune-candidate-picker__tabs {

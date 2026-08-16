@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <Style src="project://database/Packages/com.amari-noa.materilune/Editor/UI/SwapEntry/MateriluneSwapEntryView.uss" />
     <ui:VisualElement class="materilune-swap-entry">
         <uie:ObjectField name="from-field" />
         <ui:VisualElement name="elm-to-slot" class="materilune-swap-entry__to-slot">

@@ -47,9 +47,10 @@ namespace com.amari_noa.materilune.editor
         /// </summary>
         public MateriluneSwapEntryView()
         {
+            // The stylesheet is referenced by the uxml itself, so what the UI Builder
+            // previews is exactly what runs; the code attaches nothing.
             var visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
-            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
-            if (visualTree == null || styleSheet == null)
+            if (visualTree == null)
             {
                 Debug.LogError(MateriluneL10n.Get(
                     "materilune.ui.swap_entry.load_error",
@@ -58,7 +59,6 @@ namespace com.amari_noa.materilune.editor
             }
 
             visualTree.CloneTree(this);
-            styleSheets.Add(styleSheet);
 
             m_row = this.Q<VisualElement>(className: RowClass);
             m_fromField = this.Q<ObjectField>("from-field");

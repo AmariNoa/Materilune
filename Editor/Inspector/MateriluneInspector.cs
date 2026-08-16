@@ -11,8 +11,6 @@ namespace com.amari_noa.materilune.editor
     {
         private const string UxmlPath =
             "Packages/com.amari-noa.materilune/Editor/Inspector/MateriluneInspector.uxml";
-        private const string UssPath =
-            "Packages/com.amari-noa.materilune/Editor/Inspector/MateriluneInspector.uss";
 
         /// <summary>
         /// Creates the shared summary-only inspector UI.
@@ -21,9 +19,10 @@ namespace com.amari_noa.materilune.editor
         protected VisualElement CreateSharedInspectorGUI()
         {
             var root = new VisualElement();
+            // The stylesheet is referenced by the uxml itself, so what the UI Builder
+            // previews is exactly what runs; the code attaches nothing.
             var visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
-            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
-            if (visualTree == null || styleSheet == null)
+            if (visualTree == null)
             {
                 Debug.LogError(MateriluneL10n.Get(
                     "materilune.inspector.load_error",
@@ -32,7 +31,6 @@ namespace com.amari_noa.materilune.editor
             }
 
             visualTree.CloneTree(root);
-            root.styleSheets.Add(styleSheet);
 
             var summary = root.Q<Label>("lbl-summary");
             var openWindowButton = root.Q<Button>("btn-open-window");

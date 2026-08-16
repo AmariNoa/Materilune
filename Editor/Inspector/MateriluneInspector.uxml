@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="project://database/Packages/com.amari-noa.materilune/Editor/Inspector/MateriluneInspector.uss" />
     <ui:Label name="lbl-summary" class="materilune-inspector-summary" />
     <ui:Button name="btn-open-window" />
 </ui:UXML>

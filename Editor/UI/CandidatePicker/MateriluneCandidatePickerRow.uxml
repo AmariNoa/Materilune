@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="project://database/Packages/com.amari-noa.materilune/Editor/UI/CandidatePicker/MateriluneCandidatePickerView.uss" />
     <ui:VisualElement name="elm-candidate-row" class="materilune-candidate-picker__row">
         <ui:Label name="lbl-material-name" class="materilune-candidate-picker__name" />
         <ui:Image name="img-material-preview" class="materilune-candidate-picker__preview" />
