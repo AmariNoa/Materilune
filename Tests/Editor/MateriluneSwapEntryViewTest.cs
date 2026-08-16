@@ -85,6 +85,80 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(view.Q<ObjectField>("to-field").value, Is.EqualTo(to));
         }
 
+        /// <summary>
+        /// Verifies an inherited replacement is shown over an empty destination field.
+        /// </summary>
+        /// <remarks>
+        /// A row left empty here still gets whatever an enclosing setup assigns, so the row has
+        /// to say so rather than looking unset.
+        /// </remarks>
+        [Test]
+        public void SetInheritedReplacementShowsTheValueOverAnEmptyField()
+        {
+            var from = CreateMaterial("From.mat");
+            var inherited = CreateMaterial("Inherited.mat");
+            var property = CreateSwapEntryProperty(from, null);
+            var view = new MateriluneSwapEntryView();
+            view.Bind(property, null, MateriluneCandidateMode.None);
+
+            view.SetInheritedReplacement(inherited);
+
+            Assert.That(view.Q<VisualElement>("elm-inherited").visible, Is.True);
+            Assert.That(view.Q<Label>("lbl-inherited").text, Is.EqualTo(inherited.name));
+        }
+
+        /// <summary>
+        /// Verifies the row's own replacement hides the inherited one, which it overrides.
+        /// </summary>
+        [Test]
+        public void SetInheritedReplacementStaysHiddenWhenTheRowHasItsOwnValue()
+        {
+            var from = CreateMaterial("From.mat");
+            var own = CreateMaterial("Own.mat");
+            var inherited = CreateMaterial("Inherited.mat");
+            var property = CreateSwapEntryProperty(from, own);
+            var view = new MateriluneSwapEntryView();
+            view.Bind(property, null, MateriluneCandidateMode.None);
+
+            view.SetInheritedReplacement(inherited);
+
+            Assert.That(view.Q<VisualElement>("elm-inherited").visible, Is.False);
+            Assert.That(view.Q<ObjectField>("to-field").tooltip, Does.Contain(inherited.name));
+        }
+
+        /// <summary>
+        /// Verifies hiding the inherited value leaves the row the same size.
+        /// </summary>
+        /// <remarks>
+        /// Rows that grow or shrink move the controls under them, so the overlay is only ever
+        /// made invisible, never taken out of the layout.
+        /// </remarks>
+        [Test]
+        public void TheInheritedOverlayNeverLeavesTheLayout()
+        {
+            var from = CreateMaterial("From.mat");
+            var property = CreateSwapEntryProperty(from, null);
+            var view = new MateriluneSwapEntryView();
+            view.Bind(property, null, MateriluneCandidateMode.None);
+
+            view.SetInheritedReplacement(null);
+
+            Assert.That(
+                view.Q<VisualElement>("elm-inherited").resolvedStyle.display,
+                Is.EqualTo(DisplayStyle.Flex));
+        }
+
+        /// <summary>
+        /// Verifies the overlay carries the mark that sets it apart from an ordinary value.
+        /// </summary>
+        [Test]
+        public void TheInheritedOverlayCarriesItsMark()
+        {
+            var view = new MateriluneSwapEntryView();
+
+            Assert.That(view.Q<VisualElement>("elm-inherited-mark"), Is.Not.Null);
+        }
+
         // BaseField dispatches ChangeEvent only while attached to a panel, so tests that drive a
         // field through its value setter host the view in a throwaway window.
         private void AttachToPanel(MateriluneSwapEntryView view)

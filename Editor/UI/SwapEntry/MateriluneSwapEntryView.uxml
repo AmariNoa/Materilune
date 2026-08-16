@@ -1,7 +1,13 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
     <ui:VisualElement class="materilune-swap-entry">
         <uie:ObjectField name="from-field" />
-        <uie:ObjectField name="to-field" />
+        <ui:VisualElement name="elm-to-slot" class="materilune-swap-entry__to-slot">
+            <uie:ObjectField name="to-field" />
+            <ui:VisualElement name="elm-inherited" class="materilune-swap-entry__inherited" picking-mode="Ignore">
+                <ui:VisualElement name="elm-inherited-mark" class="materilune-swap-entry__inherited-mark" picking-mode="Ignore" />
+                <ui:Label name="lbl-inherited" class="materilune-swap-entry__inherited-text" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
         <ui:Button name="btn-to-candidates" />
     </ui:VisualElement>
 </ui:UXML>

@@ -33,6 +33,7 @@
         "from_tooltip": "Material to replace. Generated from the target meshes and shown for reference",
         "orphan_tooltip": "This material is no longer used by the target meshes. The replacement is kept but not applied.",
         "candidates_label": "Choose",
+        "inherited_tooltip": "An enclosing Materilune setup replaces this material with {0}.",
         "to_tooltip": "Replacement material",
         "candidates_tooltip": "Choose a replacement candidate",
         "load_error": "Materilune could not load the material swap entry UI assets.",

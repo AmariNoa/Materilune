@@ -1,5 +1,4 @@
 using System;
-using System;
 using System.Collections.Generic;
 using com.amari_noa.materilune.runtime;
 using UnityEditor;
@@ -1246,13 +1245,15 @@ namespace com.amari_noa.materilune.editor
 
         private void BindRootSwapItem(VisualElement element, int index)
         {
+            var preset = m_activePreset;
             BindSwapItem(
                 element,
                 index,
                 m_rootSerializedObject,
-                m_activePreset == null ? null : m_activePreset.AvailableMaterials,
-                m_activePreset == null ? MateriluneCandidateMode.None : m_activePreset.CandidateMode,
-                OnRootViewChanged);
+                preset == null ? null : preset.AvailableMaterials,
+                preset == null ? MateriluneCandidateMode.None : preset.CandidateMode,
+                OnRootViewChanged,
+                from => MateriluneInheritedSwaps.ResolveForRoot(preset, from));
         }
 
         private void BindOverrideSwapItem(VisualElement element, int index)
@@ -1266,7 +1267,8 @@ namespace com.amari_noa.materilune.editor
                 operationOverride == null
                     ? MateriluneCandidateMode.None
                     : operationOverride.CandidateMode,
-                OnOverrideViewChanged);
+                OnOverrideViewChanged,
+                from => MateriluneInheritedSwaps.ResolveForOverride(operationOverride, from));
         }
 
         private void BindSwapItem(
@@ -1275,7 +1277,8 @@ namespace com.amari_noa.materilune.editor
             SerializedObject serializedObject,
             IReadOnlyList<Material> fromCandidates,
             MateriluneCandidateMode candidateMode,
-            Action changedAction)
+            Action changedAction,
+            Func<Material, Material> resolveInherited)
         {
             ClearSwapRowBinding(element);
             var entryView = element == null ? null : element.Q<MateriluneSwapEntryView>();
@@ -1297,7 +1300,14 @@ namespace com.amari_noa.materilune.editor
                 return;
             }
 
-            entryView.Bind(swapsProperty.GetArrayElementAtIndex(index), fromCandidates, candidateMode);
+            var entryProperty = swapsProperty.GetArrayElementAtIndex(index);
+            entryView.Bind(entryProperty, fromCandidates, candidateMode);
+
+            // What an enclosing setup applies to this material, so a row left empty here still
+            // shows what the avatar will actually wear.
+            var fromProperty = entryProperty.FindPropertyRelative("m_from");
+            var from = fromProperty == null ? null : fromProperty.objectReferenceValue as Material;
+            entryView.SetInheritedReplacement(resolveInherited == null ? null : resolveInherited(from));
             entryView.Changed += changedAction;
             m_swapRowBindings[element] = new SwapRowBinding(entryView, changedAction);
         }

@@ -27,10 +27,13 @@ namespace com.amari_noa.materilune.editor
         private ObjectField m_fromField;
         private ObjectField m_toField;
         private Button m_toCandidates;
+        private VisualElement m_inheritedOverlay;
+        private Label m_inheritedLabel;
         private SerializedProperty m_swapEntryProperty;
         private MateriluneCandidateMode m_candidateMode;
         private bool m_isBound;
         private bool m_isOrphaned;
+        private Material m_inheritedTo;
 
         /// <summary>
         /// Creates the UXML factory for this element.
@@ -61,6 +64,8 @@ namespace com.amari_noa.materilune.editor
             m_fromField = this.Q<ObjectField>("from-field");
             m_toField = this.Q<ObjectField>("to-field");
             m_toCandidates = this.Q<Button>("btn-to-candidates");
+            m_inheritedOverlay = this.Q<VisualElement>("elm-inherited");
+            m_inheritedLabel = this.Q<Label>("lbl-inherited");
             if (m_fromField == null || m_toField == null || m_toCandidates == null)
             {
                 Debug.LogError(MateriluneL10n.Get(
@@ -142,6 +147,7 @@ namespace com.amari_noa.materilune.editor
             // row says so rather than looking like every other row.
             m_isOrphaned = IsOrphaned(fromProperty.objectReferenceValue as Material, fromCandidates);
             ApplyOrphanState();
+            ApplyInheritedState();
             UpdateControlState();
         }
 
@@ -166,8 +172,61 @@ namespace com.amari_noa.materilune.editor
             m_candidateMode = MateriluneCandidateMode.None;
             m_isBound = false;
             m_isOrphaned = false;
+            m_inheritedTo = null;
             ApplyOrphanState();
+            ApplyInheritedState();
             SetControlsEnabled(false);
+        }
+
+        /// <summary>
+        /// Sets the replacement an enclosing setup already applies to this row's material.
+        /// </summary>
+        /// <param name="inheritedTo">The inherited replacement, or <see langword="null" />.</param>
+        /// <remarks>
+        /// This is a separate call rather than an argument to Bind because Bind's signature is
+        /// part of the frozen public contract. The value is shown, never stored: the row keeps
+        /// its own empty value, so nothing extra reaches Material Swap.
+        /// </remarks>
+        public void SetInheritedReplacement(Material inheritedTo)
+        {
+            m_inheritedTo = inheritedTo;
+            ApplyInheritedState();
+        }
+
+        /// <summary>
+        /// Shows the inherited replacement over the empty field, or names it in the tooltip.
+        /// </summary>
+        /// <remarks>
+        /// The label is laid over the field rather than placed beside it, and it is hidden with
+        /// visibility so the row never changes shape. When the row has a value of its own that
+        /// value wins and is what the field must show, so the inherited one moves to the
+        /// tooltip instead of being hidden altogether.
+        /// </remarks>
+        private void ApplyInheritedState()
+        {
+            if (m_inheritedOverlay == null || m_inheritedLabel == null || m_toField == null)
+            {
+                return;
+            }
+
+            var hasOwnValue = m_toField.value != null;
+            var showLabel = m_isBound && m_inheritedTo != null && !hasOwnValue;
+            m_inheritedLabel.text = showLabel ? m_inheritedTo.name : string.Empty;
+            m_inheritedOverlay.visible = showLabel;
+
+            if (m_isBound && m_inheritedTo != null)
+            {
+                m_toField.tooltip = string.Format(
+                    MateriluneL10n.Get(
+                        "materilune.ui.swap_entry.inherited_tooltip",
+                        "An enclosing Materilune setup replaces this material with {0}."),
+                    m_inheritedTo.name);
+                return;
+            }
+
+            m_toField.tooltip = MateriluneL10n.Get(
+                "materilune.ui.swap_entry.to_tooltip",
+                "Replacement material");
         }
 
         private void ConfigureFields()
@@ -232,7 +291,7 @@ namespace com.amari_noa.materilune.editor
             m_toCandidates.text = MateriluneL10n.Get(
                 "materilune.ui.swap_entry.candidates_label",
                 "Choose");
-            m_toField.tooltip = MateriluneL10n.Get("materilune.ui.swap_entry.to_tooltip", "Replacement material");
+            ApplyInheritedState();
             m_toCandidates.tooltip = MateriluneL10n.Get(
                 "materilune.ui.swap_entry.candidates_tooltip",
                 "Choose a replacement candidate");
@@ -261,11 +320,20 @@ namespace com.amari_noa.materilune.editor
         private void OnCandidateSelected(Material material)
         {
             ApplyFieldValue("m_to", material);
+
+            // The picker writes the field without raising a change event, so the overlay is
+            // refreshed here as well; otherwise it would keep showing the inherited value over
+            // a field that now has one of its own.
+            ApplyInheritedState();
         }
 
         private void OnToFieldValueChanged(ChangeEvent<UnityEngine.Object> changeEvent)
         {
             ApplyFieldValue("m_to", changeEvent.newValue as Material);
+
+            // Clearing the row hands the material back to the enclosing setup, so the overlay
+            // has to reappear at that moment rather than at the next rebind.
+            ApplyInheritedState();
         }
 
         private void ApplyFieldValue(string relativePath, Material material)

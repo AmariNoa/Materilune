@@ -33,6 +33,7 @@
         "from_tooltip": "置換元のマテリアル。対象メッシュから自動生成された表示専用の値です",
         "orphan_tooltip": "このマテリアルは対象メッシュで使われなくなりました。置換先の設定は保持されますが適用されません。",
         "candidates_label": "選択",
+        "inherited_tooltip": "上位のMateriluneセットアップが、このマテリアルを {0} に置き換えます。",
         "to_tooltip": "置換先のマテリアル",
         "candidates_tooltip": "置換先の候補を選択",
         "load_error": "Materilune のマテリアル置換行 UI アセットを読み込めませんでした。",
