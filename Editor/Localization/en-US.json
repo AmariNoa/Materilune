@@ -46,6 +46,13 @@
         "load_error": "Materilune could not load the material candidate picker UI assets.",
         "missing_element_error": "Materilune material candidate picker UI is missing a required element."
       },
+      "hierarchy": {
+        "button_label": "Mt",
+        "button_tooltip": "Open Materilune",
+        "settings_page_label": "Hierarchy Buttons",
+        "extra_offset_label": "Extra offset",
+        "extra_offset_description": "Adds horizontal space to the left of the shared Hierarchy buttons."
+      },
       "window": {
         "title": "Materilune",
         "target_label": "Target",

@@ -62,6 +62,32 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(Resources.FindObjectsOfTypeAll<MateriluneWindow>(), Has.Length.EqualTo(1));
         }
 
+        /// <summary>
+        /// Verifies opening on an inner setup edits that setup rather than the one enclosing it.
+        /// </summary>
+        /// <remarks>
+        /// The window reads the hierarchy selection, and a button drawn on a hierarchy row does
+        /// not select that row when pressed, so opening without naming the object left the
+        /// window on whatever was selected before.
+        /// </remarks>
+        [Test]
+        public void ShowWindowOnNestedSetupResolvesTheInnerManager()
+        {
+            var outer = CreateTarget();
+            CreateRenderer("OuterRenderer", outer.transform);
+            var outerManager = MateriluneSetupService.Setup(outer, MateriluneOrphanAction.Keep);
+            var inner = CreateGameObject("Inner", outer.transform);
+            CreateRenderer("InnerRenderer", inner.transform);
+            var innerManager = MateriluneSetupService.Setup(inner, MateriluneOrphanAction.Keep);
+            Selection.activeGameObject = outer;
+            m_window = MateriluneWindow.OpenForTests();
+
+            MateriluneWindow.ShowWindow(inner);
+
+            Assert.That(m_window.ResolvedManager, Is.SameAs(innerManager));
+            Assert.That(m_window.ResolvedManager, Is.Not.SameAs(outerManager));
+        }
+
         [Test]
         public void SetTargetResolvesSetupManagerFromTarget()
         {

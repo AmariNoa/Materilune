@@ -46,6 +46,13 @@
         "load_error": "Materilune のマテリアル候補選択 UI アセットを読み込めませんでした。",
         "missing_element_error": "Materilune のマテリアル候補選択 UI に必要な要素が見つかりません。"
       },
+      "hierarchy": {
+        "button_label": "Mt",
+        "button_tooltip": "Materilune を開く",
+        "settings_page_label": "Hierarchy ボタン",
+        "extra_offset_label": "追加オフセット",
+        "extra_offset_description": "共有 Hierarchy ボタンの左側に追加する横方向の空白です。"
+      },
       "window": {
         "title": "Materilune",
         "target_label": "対象",

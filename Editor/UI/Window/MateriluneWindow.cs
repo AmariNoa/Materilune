@@ -76,14 +76,56 @@ namespace com.amari_noa.materilune.editor
         /// <summary>
         /// Shows the Materilune window, reusing the existing instance when present.
         /// </summary>
-        [MenuItem("Tools/Materilune/Materilune Window")]
         public static void ShowWindow()
         {
             GetOrCreateWindow();
         }
 
         /// <summary>
-        /// Opens the window through the same path used by the menu command.
+        /// Shows the Materilune window on a given object.
+        /// </summary>
+        /// <param name="target">The object to edit, or <see langword="null" /> to keep the
+        /// current selection.</param>
+        /// <remarks>
+        /// The window takes its target from the hierarchy selection, and a button drawn on a
+        /// hierarchy row does not select that row when it is pressed. Without this the window
+        /// would open on whatever was selected beforehand, which for nested setups is the outer
+        /// one rather than the row the button belongs to.
+        /// </remarks>
+        public static void ShowWindow(GameObject target)
+        {
+            if (target == null)
+            {
+                GetOrCreateWindow();
+                return;
+            }
+
+            Selection.activeGameObject = target;
+            GetOrCreateWindow().RefreshForSelection();
+        }
+
+        /// <summary>
+        /// Rebuilds the window from the current hierarchy selection.
+        /// </summary>
+        /// <remarks>
+        /// Assigning the selection does not raise Selection.selectionChanged straight away; the
+        /// editor raises it on its next update. An already open window would therefore keep
+        /// showing the previous target for a moment, and in a test it would never move at all.
+        /// </remarks>
+        private void RefreshForSelection()
+        {
+            m_useTestTarget = false;
+            m_testTarget = null;
+            if (!m_uiReady)
+            {
+                CreateGUI();
+            }
+
+            Rebuild();
+        }
+
+        /// <summary>
+        /// Opens the window through the same path used by the Hierarchy button.
         /// </summary>
         /// <returns>The single Materilune window instance.</returns>
         internal static MateriluneWindow OpenForTests()
