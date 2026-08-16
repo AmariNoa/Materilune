@@ -196,6 +196,40 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(resolved, Is.SameAs(deep));
         }
 
+        /// <summary>
+        /// Verifies the later of two components at the same depth is the one read.
+        /// </summary>
+        /// <remarks>
+        /// Material Swap orders by the walk, not by depth, so siblings are settled by their
+        /// order among themselves. A rule written in terms of depth alone cannot tell these
+        /// two apart and would pick whichever happened to come first.
+        /// </remarks>
+        [Test]
+        public void ResolveForOverrideReadsTheLaterOfTwoSiblingComponents()
+        {
+            var shared = CreateMaterial();
+            var earlier = CreateMaterial();
+            var later = CreateMaterial();
+            var nested = BuildNestedSetups(shared);
+            var outerPerMesh = FindOverrideFor(nested.OuterPreset, nested.InnerRenderer);
+            Assert.That(outerPerMesh, Is.Not.Null, "the outer setup should cover the inner renderer");
+
+            // Both hang off the same object, so they are at one depth and only their order
+            // among themselves separates them.
+            var host = outerPerMesh.transform;
+            var first = CreateGameObject("First", host).AddComponent<MateriluneSwapOverride>();
+            first.TargetRenderer = nested.InnerRenderer;
+            SetSwap(first, shared, earlier);
+            var second = CreateGameObject("Second", host).AddComponent<MateriluneSwapOverride>();
+            second.TargetRenderer = nested.InnerRenderer;
+            SetSwap(second, shared, later);
+            Assert.That(second.transform.GetSiblingIndex(), Is.GreaterThan(first.transform.GetSiblingIndex()));
+
+            var resolved = MateriluneInheritedSwaps.ResolveForOverride(nested.InnerOverride, shared);
+
+            Assert.That(resolved, Is.SameAs(later));
+        }
+
         private NestedSetups BuildNestedSetups(Material shared)
         {
             var outerTarget = CreateAvatarRoot();

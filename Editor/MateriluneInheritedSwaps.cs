@@ -22,10 +22,11 @@ namespace com.amari_noa.materilune.editor
         /// <param name="from">The material being replaced.</param>
         /// <returns>The inherited replacement, or <see langword="null" /> when there is none.</returns>
         /// <remarks>
-        /// An enclosing setup can address this renderer in two ways: through its own per-mesh
-        /// component for the same renderer, or through the whole-preset replacements that cover
-        /// every mesh. The per-mesh one sits deeper and therefore wins, matching the order
-        /// Material Swap itself applies.
+        /// An enclosing setup can address this renderer in two ways: through its whole-preset
+        /// replacements, which cover every mesh, or through a per-mesh component for this same
+        /// renderer. Material Swap keeps whichever of them it reaches last while walking the
+        /// hierarchy, and a component that says nothing about this material is not in the
+        /// running at all, so the answer is the last one that actually names a replacement.
         /// </remarks>
         public static Material ResolveForOverride(MateriluneSwapOverride operationOverride, Material from)
         {
@@ -37,20 +38,31 @@ namespace com.amari_noa.materilune.editor
             var renderer = operationOverride.TargetRenderer;
             foreach (var preset in EnumerateEnclosingActivePresets(operationOverride.transform))
             {
+                // The preset's own object comes before its children in the walk, so it is
+                // considered first and anything below it can still take the material off it.
+                var replacement = FindReplacement(preset.Swaps, from);
                 if (renderer != null)
                 {
-                    var perMesh = FindOverrideFor(preset, renderer);
-                    var deeper = perMesh == null ? null : FindReplacement(perMesh.Swaps, from);
-                    if (deeper != null)
+                    foreach (var candidate in preset.GetComponentsInChildren<MateriluneSwapOverride>(true))
                     {
-                        return deeper;
+                        // Reference equality only. The hierarchy may hold several objects of
+                        // one name, so matching on names would pair the wrong ones up.
+                        if (candidate == null || candidate.TargetRenderer != renderer)
+                        {
+                            continue;
+                        }
+
+                        var candidateReplacement = FindReplacement(candidate.Swaps, from);
+                        if (candidateReplacement != null)
+                        {
+                            replacement = candidateReplacement;
+                        }
                     }
                 }
 
-                var wholePreset = FindReplacement(preset.Swaps, from);
-                if (wholePreset != null)
+                if (replacement != null)
                 {
-                    return wholePreset;
+                    return replacement;
                 }
             }
 
@@ -162,53 +174,6 @@ namespace com.amari_noa.materilune.editor
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Finds the component of a preset that addresses one renderer.
-        /// </summary>
-        /// <param name="preset">The preset to search.</param>
-        /// <param name="renderer">The renderer being addressed.</param>
-        /// <returns>The component, or <see langword="null" /> when the preset has none.</returns>
-        /// <remarks>
-        /// A preset can hold more than one component pointing at the same renderer: the layer
-        /// standing for the target object itself addresses that object's own renderer, and so
-        /// does the per-mesh object made for it. The deepest one is what Material Swap applies,
-        /// so it is what gets reported here.
-        /// </remarks>
-        private static MateriluneSwapOverride FindOverrideFor(MateriluneSwapRoot preset, Renderer renderer)
-        {
-            MateriluneSwapOverride deepest = null;
-            var deepestDepth = -1;
-            foreach (var candidate in preset.GetComponentsInChildren<MateriluneSwapOverride>(true))
-            {
-                // Reference equality only. The hierarchy may hold several objects of one name,
-                // so matching on names would pair the wrong ones up.
-                if (candidate == null || candidate.TargetRenderer != renderer)
-                {
-                    continue;
-                }
-
-                var depth = DepthOf(candidate.transform);
-                if (depth > deepestDepth)
-                {
-                    deepest = candidate;
-                    deepestDepth = depth;
-                }
-            }
-
-            return deepest;
-        }
-
-        private static int DepthOf(Transform transform)
-        {
-            var depth = 0;
-            for (var current = transform; current != null; current = current.parent)
-            {
-                depth++;
-            }
-
-            return depth;
         }
 
         private static Material FindReplacement(
