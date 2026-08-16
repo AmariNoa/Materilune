@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.1.0-beta.3] - 2026-08-17
+
+### Added
+
+- Batch swap. One replacement serves as the example: the name pattern between its two materials is detected and applied to the panel's other materials at once. Every row is shown for approval first, rows that already hold a replacement start excluded, and applying is a single undo step.
+- The material candidate popup gained an outline.
+
+### Changed
+
+- The UI stylesheets are now referenced by the UXML documents themselves (no visual change).
+
 ## [0.1.0-beta.2] - 2026-08-16
 
 ### Added
