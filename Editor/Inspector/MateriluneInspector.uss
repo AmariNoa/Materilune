@@ -6,6 +6,25 @@
     margin-bottom: 4px;
 }
 
-.materilune-inspector-summary + .unity-button {
+/* The open-window button, addressed by name: USS has no sibling combinator (+), and the
+   old selector written that way made the whole sheet fail to import. */
+#btn-open-window {
     margin-bottom: 2px;
+}
+
+/* The wordmark above every Materilune component, full-width and undistorted at any
+   inspector width. USS cannot express an aspect ratio directly, so the box borrows the
+   CSS trick: zero height plus a percentage top padding, which resolves against the
+   parent's width. 36.715% is the source picture's 760 / 2070, so the box always has the
+   picture's own proportions and the stretched background cannot distort. */
+.materilune-inspector-logo {
+    width: 100%;
+    height: 0;
+    padding-top: 36.715%;
+    flex-shrink: 0;
+    margin-top: 2px;
+    margin-bottom: 4px;
+    background-image: url("project://database/Packages/com.amari-noa.materilune/Editor/Images/logo.png?fileID=2800000&guid=a2b49fb5bc926e6911433e7fe515d1ba&type=3#logo");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
 }

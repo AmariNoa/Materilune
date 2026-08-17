@@ -22,6 +22,7 @@
       "open_window": "Open in Materilune Window",
       "multiple_objects": "Multiple objects selected",
       "none": "None",
+      "marker_summary": "Target: {0}",
       "swap_summary": "Presets: {0}\nActive preset: {1}",
       "root_summary": "Target: {0}\nReplacements set: {1} / {2}{3}",
       "override_summary": "Target mesh: {0}\nReplacements set: {1} / {2}",

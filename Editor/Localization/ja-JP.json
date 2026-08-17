@@ -22,6 +22,7 @@
       "open_window": "Materilune ウィンドウで開く",
       "multiple_objects": "複数のオブジェクトを選択中",
       "none": "なし",
+      "marker_summary": "対象: {0}",
       "swap_summary": "プリセット: {0} 件\nアクティブなプリセット: {1}",
       "root_summary": "対象: {0}\n置換設定 {1} / {2} 件{3}",
       "override_summary": "対象メッシュ: {0}\n置換設定 {1} / {2} 件",
