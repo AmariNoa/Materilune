@@ -3,7 +3,7 @@
   "materilune": {
     "language": {
       "label": "Language",
-      "shared_note": "This language setting is shared across the whole Unity Editor and applies to all packages that use Unity Editor Localization Core."
+      "shared_note": "This language setting is shared between tools that use Unity Editor Localization Core."
     },
     "setup": {
       "orphan": {

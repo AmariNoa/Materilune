@@ -48,11 +48,6 @@
 
 本パッケージはベータ版です。仕様と公開APIは変更される場合があります。
 
-未実装の項目:
-
-- 言語設定がUnityエディタ全体・全パッケージ共通である旨の注記表示
-- Materiluneウィンドウの対象オブジェクトを固定するロックトグル
-
 ## パッケージ開発における AI の取り扱い
 
 - 本パッケージの開発にはCodexおよびClaude Codeを使用しています。
@@ -102,11 +97,6 @@ To browse the listing directly, visit the page below.
 ## Current state
 
 This package is in beta. The specification and the public API may change.
-
-Not implemented yet:
-
-- A note stating that the language setting is shared across the whole Unity editor and every package
-- A lock toggle that pins the Materilune window to one target object
 
 ## Use of AI in Package Development
 

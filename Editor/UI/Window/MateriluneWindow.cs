@@ -2679,6 +2679,13 @@ namespace com.amari_noa.materilune.editor
                 m_languageDropdown.label = MateriluneL10n.Get(
                     "materilune.language.label",
                     "Language");
+
+                // The note rides as a tooltip (2026-08-17 の判断 T37-Q2/Q4): the setting is
+                // not Materilune's own, and a switch here follows every tool built on the
+                // same localization core.
+                m_languageDropdown.tooltip = MateriluneL10n.Get(
+                    "materilune.language.shared_note",
+                    "This language setting is shared between tools that use Unity Editor Localization Core.");
                 RefreshLanguageDropdown();
             }
 

@@ -3,7 +3,7 @@
   "materilune": {
     "language": {
       "label": "言語",
-      "shared_note": "この言語設定は Unity Editor 全体で共有され、Unity Editor Localization Core を使用するすべてのパッケージに適用されます。"
+      "shared_note": "この言語設定は、Unity Editor Localization Core を使用するツール間で共有されます。"
     },
     "setup": {
       "orphan": {
