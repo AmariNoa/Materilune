@@ -789,6 +789,81 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(m_window.DisplayedPreset, Is.SameAs(manager.GetPresets()[0]));
         }
 
+        /// <summary>
+        /// Verifies removing the active preset hands its duty to the one shown next.
+        /// </summary>
+        /// <remarks>
+        /// Every remaining preset used to stay off, which read as nothing being selected. The
+        /// hand-over only happens when the removed preset was the active one.
+        /// </remarks>
+        [Test]
+        public void RemovingTheActivePresetActivatesTheFallback()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            var active = manager.GetPresets()[0];
+            Assert.That(active.gameObject.activeSelf, Is.True, "the first preset should start active");
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            m_window.RemovePresetForTests(active);
+
+            var remaining = manager.GetPresets();
+            Assert.That(remaining, Has.Count.EqualTo(1));
+            Assert.That(remaining[0].gameObject.activeSelf, Is.True);
+        }
+
+        /// <summary>
+        /// Verifies removing an inactive preset changes nothing about what is active.
+        /// </summary>
+        [Test]
+        public void RemovingAnInactivePresetLeavesActivationAlone()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var inactive = MateriluneSetupService.AddPreset(manager);
+            var active = manager.GetPresets()[0];
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            m_window.RemovePresetForTests(inactive);
+
+            Assert.That(active.gameObject.activeSelf, Is.True);
+            Assert.That(manager.GetPresets(), Has.Count.EqualTo(1));
+        }
+
+        /// <summary>
+        /// Verifies one undo restores both the removed preset and the old active arrangement.
+        /// </summary>
+        [Test]
+        public void UndoingARemovalRestoresTheOldActivePreset()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            var active = manager.GetPresets()[0];
+            var other = manager.GetPresets()[1];
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            m_window.RemovePresetForTests(active);
+            Assert.That(other.gameObject.activeSelf, Is.True, "the fallback should take over");
+
+            Undo.FlushUndoRecordObjects();
+            MateriluneInspectorIsolation.PerformUndo();
+
+            var restored = manager.GetPresets();
+            Assert.That(restored, Has.Count.EqualTo(2));
+            Assert.That(restored[0].gameObject.activeSelf, Is.True);
+            Assert.That(other.gameObject.activeSelf, Is.False, "one undo must return the duty too");
+        }
+
         [Test]
         public void ClosingWindowUnsubscribesBeforeUndoAndRedo()
         {

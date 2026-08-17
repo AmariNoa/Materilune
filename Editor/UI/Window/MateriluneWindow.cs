@@ -1833,18 +1833,51 @@ namespace com.amari_noa.materilune.editor
                 return;
             }
 
+            RemovePresetCore(manager, preset);
+        }
+
+        /// <summary>
+        /// Removes a preset and, when it was the active one, hands its duty to another.
+        /// </summary>
+        /// <param name="manager">The manager the preset belongs to.</param>
+        /// <param name="preset">The preset to remove.</param>
+        /// <remarks>
+        /// Removing the active preset used to leave every remaining preset off, which read as
+        /// nothing being selected at all (2026-08-17 の指示で自動アクティブ化に変更, T35-Q2).
+        /// The replacement is only activated when the removed preset was active: removing an
+        /// inactive one changes nothing about what the avatar wears, and the removal plus the
+        /// hand-over land in one undo group so a single undo restores the old arrangement.
+        /// </remarks>
+        private void RemovePresetCore(MateriluneSwap manager, MateriluneSwapRoot preset)
+        {
             var wasDisplayed = m_activePreset == preset;
+            var wasActive = preset.gameObject.activeSelf;
             Undo.IncrementCurrentGroup();
             var undoGroup = Undo.GetCurrentGroup();
-            Undo.SetCurrentGroupName(MateriluneL10n.Get(
+            var undoLabel = MateriluneL10n.Get(
                 "materilune.ui.window.preset_remove_title",
-                "Remove preset"));
+                "Remove preset");
+            Undo.SetCurrentGroupName(undoLabel);
             try
             {
                 Undo.DestroyObjectImmediate(preset.gameObject);
                 if (wasDisplayed)
                 {
                     m_activePreset = null;
+                }
+
+                if (wasActive)
+                {
+                    var fallback = m_activePreset != null && m_activePreset.gameObject != null
+                        ? m_activePreset
+                        : FirstPreset(manager);
+                    if (fallback != null && !fallback.gameObject.activeSelf)
+                    {
+                        Undo.RecordObject(fallback.gameObject, undoLabel);
+                        fallback.gameObject.SetActive(true);
+                        EditorUtility.SetDirty(fallback.gameObject);
+                        PrefabUtility.RecordPrefabInstancePropertyModifications(fallback.gameObject);
+                    }
                 }
 
                 MateriluneSwapSynchronizer.Sync(manager);
@@ -1855,6 +1888,30 @@ namespace com.amari_noa.materilune.editor
             }
 
             Rebuild();
+        }
+
+        private static MateriluneSwapRoot FirstPreset(MateriluneSwap manager)
+        {
+            foreach (var preset in manager.GetPresets())
+            {
+                if (preset != null && preset.gameObject != null)
+                {
+                    return preset;
+                }
+            }
+
+            return null;
+        }
+
+        internal void RemovePresetForTests(MateriluneSwapRoot preset)
+        {
+            var manager = ResolvedManager;
+            if (manager == null || preset == null)
+            {
+                return;
+            }
+
+            RemovePresetCore(manager, preset);
         }
 
         internal void ClearRootReplacementsForTests()
