@@ -1,6 +1,8 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
     <ui:VisualElement name="elm-preset-row" style="flex-grow: 1; flex-direction: row; align-items: center; min-width: 0;">
-        <ui:RadioButton name="tgl-preset-active" style="flex-shrink: 0; margin-left: 0; margin-right: 2px; width: 16px;" />
+        <ui:GroupBox style="flex-shrink: 0; margin: 0; padding: 0;">
+            <ui:RadioButton name="tgl-preset-active" style="flex-shrink: 0; margin-left: 0; margin-right: 2px; width: 16px;" />
+        </ui:GroupBox>
         <ui:VisualElement name="elm-preset-name-slot" style="flex-grow: 1; flex-shrink: 1; min-width: 0;">
             <ui:Label name="lbl-preset-name" style="flex-grow: 1; min-width: 0; overflow: hidden;" />
             <ui:TextField name="txt-preset-name" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; margin: 0; visibility: hidden;" />

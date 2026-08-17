@@ -37,15 +37,18 @@ namespace com.amari_noa.materilune.editor
             var setupState = PrepareSetup(target);
             if (setupState.Orphans.Count > 0)
             {
-                var remove = EditorUtility.DisplayDialog(
+                // Cancel takes the primary (left) slot: every button row in this package
+                // reads back on the left, forward on the right (2026-08-17 の指示).
+                // DisplayDialog answers true for the first button, so the answer is inverted.
+                var remove = !EditorUtility.DisplayDialog(
                     MateriluneL10n.Get("materilune.setup.orphan.title", "Materilune Setup"),
                     string.Format(
                         MateriluneL10n.Get(
                             "materilune.setup.orphan.message",
                             "{0} operation object(s) no longer have a corresponding mesh. They will be removed. Continue?"),
                         setupState.Orphans.Count),
-                    MateriluneL10n.Get("materilune.setup.orphan.remove", "Remove"),
-                    MateriluneL10n.Get("materilune.setup.orphan.cancel", "Cancel"));
+                    MateriluneL10n.Get("materilune.setup.orphan.cancel", "Cancel"),
+                    MateriluneL10n.Get("materilune.setup.orphan.remove", "Remove"));
                 if (!remove)
                 {
                     return setupState.Manager;
@@ -97,7 +100,7 @@ namespace com.amari_noa.materilune.editor
             try
             {
                 var renderers = CollectTargetRenderers(target);
-                var preset = CreatePreset(manager, "Swap" + (manager.GetPresets().Count + 1));
+                var preset = CreatePreset(manager, NextFreePresetName(manager));
                 var presetState = new PresetState(
                     preset,
                     new Dictionary<Renderer, MateriluneSwapOverride>(),
@@ -420,6 +423,37 @@ namespace com.amari_noa.materilune.editor
             managerObject.transform.SetParent(marker.transform, false);
             Undo.RegisterCreatedObjectUndo(managerObject, UndoGroupName);
             return Undo.AddComponent<MateriluneSwap>(managerObject);
+        }
+
+        /// <summary>
+        /// Picks the first SwapN name no existing preset is wearing.
+        /// </summary>
+        /// <param name="manager">The manager the preset will join.</param>
+        /// <returns>The name for the new preset.</returns>
+        /// <remarks>
+        /// Counting presets is not enough: names are the user's to edit, so a manager holding
+        /// one preset called Swap2 would count to a second Swap2. Names decide nothing, but
+        /// two identical rows cannot be told apart by the person reading them.
+        /// </remarks>
+        private static string NextFreePresetName(MateriluneSwap manager)
+        {
+            var taken = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var preset in manager.GetPresets())
+            {
+                if (preset != null && preset.gameObject != null)
+                {
+                    taken.Add(preset.gameObject.name);
+                }
+            }
+
+            for (var number = 1; ; number++)
+            {
+                var candidate = "Swap" + number;
+                if (!taken.Contains(candidate))
+                {
+                    return candidate;
+                }
+            }
         }
 
         private static MateriluneSwapRoot CreatePreset(MateriluneSwap manager, string displayName)

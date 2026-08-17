@@ -322,6 +322,33 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(MateriluneMarkerOrdering.IsOrderGuaranteed(component), Is.False);
         }
 
+        /// <summary>
+        /// Verifies a new preset never takes a name an existing preset already wears.
+        /// </summary>
+        /// <remarks>
+        /// The name used to come from the preset count, so one preset renamed to Swap2 counted
+        /// straight to a second Swap2. Names decide nothing, but identical rows cannot be told
+        /// apart by the person reading them.
+        /// </remarks>
+        [Test]
+        public void AddPresetSkipsNamesAlreadyInUse()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform, CreateMaterial(GetShader()));
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Remove);
+            manager.GetPresets()[0].gameObject.name = "Swap2";
+
+            var added = MateriluneSetupService.AddPreset(manager);
+
+            Assert.That(added.gameObject.name, Is.Not.EqualTo("Swap2"));
+
+            var names = new HashSet<string>();
+            foreach (var preset in manager.GetPresets())
+            {
+                Assert.That(names.Add(preset.gameObject.name), Is.True, "duplicate preset name");
+            }
+        }
+
         [Test]
         public void SetupUndoAndRedoRestoreManagerAndPreset()
         {
