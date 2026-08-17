@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.1.0-beta.4] - 2026-08-17
+
+### Added
+
+- A radio at the head of each preset row activates that preset. Only the pressed one ends up active, one undo restores the previous arrangement, and inactive presets remain part of the build.
+- Preset names can be edited in place with a double click. Enter keeps the name, Esc or a click elsewhere puts the edit away.
+
+### Changed
+
+- Selecting a preset row now only chooses what is edited. It used to activate the preset as a side effect; the radio carries that duty, so an inactive preset can be worked on without switching the avatar to it.
+- The batch swap list starts with every applicable row ticked, the overwriting ones included, and gained select-all and select-none buttons.
+
 ## [0.1.0-beta.3] - 2026-08-17
 
 ### Added
