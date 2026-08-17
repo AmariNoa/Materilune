@@ -44,6 +44,8 @@ namespace com.amari_noa.materilune.editor
         private Button m_presetAddButton;
         private Button m_rootClearButton;
         private Button m_rootBatchButton;
+        private Button m_presetExportButton;
+        private Button m_presetImportButton;
         private TextField m_activeRenameField;
         private Button m_overrideBatchButton;
         private Button m_overrideClearButton;
@@ -228,6 +230,7 @@ namespace com.amari_noa.materilune.editor
                 Undo.undoRedoPerformed -= OnUndoRedoPerformed;
                 EditorApplication.hierarchyChanged -= OnHierarchyChanged;
                 MateriluneL10n.RemoveLanguageChangedListener(OnLanguageChanged);
+                m_uiReady = false;
                 m_isSubscribed = false;
             }
 
@@ -271,6 +274,17 @@ namespace com.amari_noa.materilune.editor
             rootVisualElement.RegisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
             ConfigureListAndTreeViews();
             m_languageDropdown.RegisterValueChangedCallback(OnLanguageValueChanged);
+
+            // The box renders whatever this returns, whatever the field's value happens to
+            // hold. Every failure seen so far has been the display and not the setting, so the
+            // display is bound straight to the library's answer and stops being able to lie:
+            // a stale placeholder or a mid-dispatch rewrite still ends up drawn as the code
+            // that is actually in effect.
+            m_languageDropdown.formatSelectedValueCallback = _ =>
+            {
+                var currentCode = MateriluneL10n.CurrentLanguageCode;
+                return string.IsNullOrEmpty(currentCode) ? string.Empty : currentCode;
+            };
             m_presetList.selectionChanged += OnPresetSelectionChanged;
             m_overrideTree.selectionChanged += OnTreeSelectionChanged;
             m_presetAddButton.clicked += OnPresetAddClicked;
@@ -287,6 +301,16 @@ namespace com.amari_noa.materilune.editor
             if (m_rootBatchButton != null)
             {
                 m_rootBatchButton.clicked += OnRootBatchClicked;
+            }
+
+            if (m_presetExportButton != null)
+            {
+                m_presetExportButton.clicked += OnPresetExportClicked;
+            }
+
+            if (m_presetImportButton != null)
+            {
+                m_presetImportButton.clicked += OnPresetImportClicked;
             }
 
             if (m_overrideBatchButton != null)
@@ -328,6 +352,8 @@ namespace com.amari_noa.materilune.editor
             m_overrideClearButton =
                 rootVisualElement.Q<Button>("btn-clear-swap-override-entries");
             m_presetList = rootVisualElement.Q<ListView>("lv-preset-list");
+            m_presetExportButton = rootVisualElement.Q<Button>("btn-preset-export");
+            m_presetImportButton = rootVisualElement.Q<Button>("btn-preset-import");
             m_rootSwapList = rootVisualElement.Q<ListView>("lv-swap-root-entries");
             m_overrideTree = rootVisualElement.Q<TreeView>("tv-swap-override-components");
             m_overrideSwapList = rootVisualElement.Q<ListView>("lv-swap-override-entries");
@@ -362,6 +388,8 @@ namespace com.amari_noa.materilune.editor
             m_fixOrderButton = null;
             m_rootClearButton = null;
             m_rootBatchButton = null;
+            m_presetExportButton = null;
+            m_presetImportButton = null;
             m_overrideBatchButton = null;
             m_overrideClearButton = null;
             m_presetList = null;
@@ -412,6 +440,16 @@ namespace com.amari_noa.materilune.editor
             if (m_rootBatchButton != null)
             {
                 m_rootBatchButton.clicked -= OnRootBatchClicked;
+            }
+
+            if (m_presetExportButton != null)
+            {
+                m_presetExportButton.clicked -= OnPresetExportClicked;
+            }
+
+            if (m_presetImportButton != null)
+            {
+                m_presetImportButton.clicked -= OnPresetImportClicked;
             }
 
             if (m_overrideBatchButton != null)
@@ -480,10 +518,22 @@ namespace com.amari_noa.materilune.editor
 
         private void OnLanguageChanged(string languageCode)
         {
-            if (m_uiReady)
+            if (!m_uiReady)
             {
-                ApplyLocalizedTexts();
+                return;
             }
+
+            // Deferred a tick on purpose. The library raises this synchronously from inside
+            // SetLanguage, which the dropdown's own change event is still dispatching; redoing
+            // the dropdown's label, choices and value in the middle of that dispatch is what
+            // let the label text bleed into the value display.
+            rootVisualElement.schedule.Execute(() =>
+            {
+                if (m_uiReady)
+                {
+                    ApplyLocalizedTexts();
+                }
+            });
         }
 
         private void OnLanguageValueChanged(ChangeEvent<string> changeEvent)
@@ -781,6 +831,124 @@ namespace com.amari_noa.materilune.editor
         private void OnRootClearClicked()
         {
             ClearReplacements(m_rootSerializedObject);
+        }
+
+        /// <summary>
+        /// Writes the displayed preset to a .mlsp file the user picks.
+        /// </summary>
+        private void OnPresetExportClicked()
+        {
+            var preset = m_activePreset;
+            if (preset == null || preset.gameObject == null)
+            {
+                return;
+            }
+
+            var path = EditorUtility.SaveFilePanel(
+                MateriluneL10n.Get("materilune.ui.window.preset_export_title", "Export Materilune preset"),
+                string.Empty,
+                preset.gameObject.name + "." + MaterilunePresetFile.Extension,
+                MaterilunePresetFile.Extension);
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            try
+            {
+                System.IO.File.WriteAllText(path, MaterilunePresetFile.ExportToJson(preset));
+            }
+            catch (Exception exception) when (exception is System.IO.IOException
+                || exception is UnauthorizedAccessException)
+            {
+                // The exception text stays in the log for diagnosis; the dialog speaks the
+                // user's language and points at the thing they control, the chosen location.
+                Debug.LogException(exception);
+                EditorUtility.DisplayDialog(
+                    MateriluneL10n.Get("materilune.ui.window.preset_export_title", "Export Materilune preset"),
+                    MateriluneL10n.Get(
+                        "materilune.ui.window.preset_export_failed",
+                        "The file could not be written. Check the chosen location."),
+                    MateriluneL10n.Get("materilune.ui.window.preset_import_close", "Close"));
+                return;
+            }
+
+            // A file saved into the project should appear without a manual refresh.
+            AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// Brings a .mlsp file in as a new preset and reports what came of it.
+        /// </summary>
+        private void OnPresetImportClicked()
+        {
+            var manager = ResolvedManager;
+            if (manager == null)
+            {
+                return;
+            }
+
+            var path = EditorUtility.OpenFilePanel(
+                MateriluneL10n.Get("materilune.ui.window.preset_import_title", "Import Materilune preset"),
+                string.Empty,
+                MaterilunePresetFile.Extension);
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            MaterilunePresetImportResult result;
+            try
+            {
+                result = MaterilunePresetFile.ImportFromJson(manager, System.IO.File.ReadAllText(path));
+            }
+            catch (Exception exception) when (exception is ArgumentException
+                || exception is System.IO.IOException
+                || exception is UnauthorizedAccessException)
+            {
+                // The raw message is English by construction, so the dialog carries the
+                // translated explanation and the log carries the specifics.
+                Debug.LogException(exception);
+                EditorUtility.DisplayDialog(
+                    MateriluneL10n.Get("materilune.ui.window.preset_import_title", "Import Materilune preset"),
+                    MateriluneL10n.Get(
+                        "materilune.ui.window.preset_import_invalid",
+                        "The file could not be read as a Materilune swap preset."),
+                    MateriluneL10n.Get("materilune.ui.window.preset_import_close", "Close"));
+                return;
+            }
+
+            var report = new System.Text.StringBuilder();
+            report.AppendFormat(
+                MateriluneL10n.Get(
+                    "materilune.ui.window.preset_import_applied",
+                    "{0} replacement(s) were applied."),
+                result.AppliedCount);
+            foreach (var missing in result.MissingMaterials)
+            {
+                report.AppendLine();
+                report.AppendFormat(
+                    MateriluneL10n.Get(
+                        "materilune.ui.window.preset_import_missing",
+                        "Material not found: {0}"),
+                    missing);
+            }
+
+            foreach (var unmatched in result.UnmatchedOverrides)
+            {
+                report.AppendLine();
+                report.AppendFormat(
+                    MateriluneL10n.Get(
+                        "materilune.ui.window.preset_import_unmatched",
+                        "No mesh matched: {0}"),
+                    unmatched);
+            }
+
+            EditorUtility.DisplayDialog(
+                MateriluneL10n.Get("materilune.ui.window.preset_import_title", "Import Materilune preset"),
+                report.ToString(),
+                MateriluneL10n.Get("materilune.ui.window.preset_import_close", "Close"));
+            Rebuild();
         }
 
         private void OnRootBatchClicked()
@@ -1271,8 +1439,11 @@ namespace com.amari_noa.materilune.editor
                     return;
                 }
 
-                var toggle = changeEvent.currentTarget as RadioButton;
-                toggle?.SetValueWithoutNotify(true);
+                // Radios cannot be clicked off, so this only fires when something else turns
+                // the control off behind our back. The rows are re-read from the scene rather
+                // than the one control patched: fighting a group with SetValueWithoutNotify is
+                // what desynchronized the display from the actual active preset before.
+                m_presetList?.RefreshItems();
             };
             activeToggle.RegisterValueChangedCallback(activeChanged);
 
@@ -1474,7 +1645,9 @@ namespace com.amari_noa.materilune.editor
             {
                 for (var index = 0; index < presets.Count; index++)
                 {
-                    if (presets[index] == m_activePreset)
+                    // Reference identity on purpose: the row shows the same instance the
+                    // window holds, and the compiler is told so to silence CS0252.
+                    if (ReferenceEquals(presets[index], m_activePreset))
                     {
                         selectedIndex = index;
                         break;
@@ -1638,13 +1811,16 @@ namespace com.amari_noa.materilune.editor
                 return;
             }
 
-            var shouldRemove = EditorUtility.DisplayDialog(
+            // The argument order puts Cancel in the primary (left) slot, per the requested
+            // layout (2026-08-17 の指示: 左を中止、右を除去). DisplayDialog answers true for
+            // that first button, so the answer is inverted to keep meaning "remove".
+            var shouldRemove = !EditorUtility.DisplayDialog(
                 MateriluneL10n.Get("materilune.ui.window.preset_remove_title", "Remove preset"),
                 MateriluneL10n.Get(
                     "materilune.ui.window.preset_remove_message",
                     "Remove this preset and all of its replacement settings?"),
-                MateriluneL10n.Get("materilune.setup.orphan.remove", "Remove"),
-                MateriluneL10n.Get("materilune.setup.orphan.cancel", "Cancel"));
+                MateriluneL10n.Get("materilune.setup.orphan.cancel", "Cancel"),
+                MateriluneL10n.Get("materilune.setup.orphan.remove", "Remove"));
             if (!shouldRemove)
             {
                 return;
@@ -1871,6 +2047,14 @@ namespace com.amari_noa.materilune.editor
             m_overrideTree.SetRootItems(m_treeItems);
             m_overrideTree.Rebuild();
 
+            // The root row starts open (2026-08-17 の指示). A tree whose only visible row is a
+            // collapsed root reads as empty, and the first click every time was always to open
+            // it. Children below keep whatever fold state the user gave them.
+            if (target != null && target.transform != null && m_treeItems.Count > 0)
+            {
+                m_overrideTree.ExpandItem(target.transform.GetInstanceID());
+            }
+
             if (m_selectedRenderer != null)
             {
                 var selectedTransform = FindTransformForRenderer(target, m_selectedRenderer);
@@ -2019,7 +2203,24 @@ namespace com.amari_noa.materilune.editor
                 }
             }
 
-            return FindActivePreset(manager);
+            var activePreset = FindActivePreset(manager);
+            if (activePreset != null)
+            {
+                return activePreset;
+            }
+
+            // No active preset is a legitimate arrangement, but a window with presets and no
+            // selection is not: removing the shown preset or importing an inactive one would
+            // otherwise leave every panel empty. The first preset stands in.
+            foreach (var preset in manager.GetPresets())
+            {
+                if (preset != null)
+                {
+                    return preset;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -2322,6 +2523,20 @@ namespace com.amari_noa.materilune.editor
             ApplyBatchButtonText(m_rootBatchButton);
             ApplyBatchButtonText(m_overrideBatchButton);
 
+            if (m_presetExportButton != null)
+            {
+                m_presetExportButton.text = MateriluneL10n.Get(
+                    "materilune.ui.window.preset_export_button",
+                    "Export");
+            }
+
+            if (m_presetImportButton != null)
+            {
+                m_presetImportButton.text = MateriluneL10n.Get(
+                    "materilune.ui.window.preset_import_button",
+                    "Import");
+            }
+
             if (m_fixOrderButton != null)
             {
                 m_fixOrderButton.text = MateriluneL10n.Get(
@@ -2437,8 +2652,43 @@ namespace com.amari_noa.materilune.editor
             var choices = availableLanguages == null
                 ? new List<string>()
                 : new List<string>(availableLanguages);
-            m_languageDropdown.choices = choices;
-            m_languageDropdown.SetValueWithoutNotify(MateriluneL10n.CurrentLanguageCode);
+
+            // Reassigned only when the set actually changed: swapping the list makes the
+            // field rebuild its text, and that churn is wasted on every localization pass.
+            var existing = m_languageDropdown.choices;
+            var sameChoices = existing != null && existing.Count == choices.Count;
+            if (sameChoices)
+            {
+                for (var position = 0; position < choices.Count; position++)
+                {
+                    if (existing[position] != choices[position])
+                    {
+                        sameChoices = false;
+                        break;
+                    }
+                }
+            }
+
+            if (!sameChoices)
+            {
+                m_languageDropdown.choices = choices;
+            }
+
+            // The value goes in by index. Handing SetValueWithoutNotify a string the choices
+            // do not contain leaves the previous text standing on some editor versions, and
+            // the previous text of a freshly cloned field is the placeholder from the uxml —
+            // which is how the box came to read "Language" while everything else was fine.
+            var current = MateriluneL10n.CurrentLanguageCode;
+            var index = current == null ? -1 : choices.IndexOf(current);
+            if (index < 0 && choices.Count > 0)
+            {
+                index = 0;
+            }
+
+            if (index >= 0)
+            {
+                m_languageDropdown.SetValueWithoutNotify(choices[index]);
+            }
         }
 
         private sealed class PresetRowBinding

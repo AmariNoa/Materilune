@@ -696,6 +696,36 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(presets[0].gameObject.name, Is.EqualTo(firstName));
         }
 
+        /// <summary>
+        /// Verifies removing the shown preset never leaves the window with nothing selected.
+        /// </summary>
+        /// <remarks>
+        /// The fallback used to be the active preset alone, and with every remaining preset
+        /// inactive there was nothing to fall back to: no selected row, empty panels, after a
+        /// removal or an import. The first preset stands in now.
+        /// </remarks>
+        [Test]
+        public void RemovingTheShownPresetFallsBackToAnotherPreset()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var second = MateriluneSetupService.AddPreset(manager);
+            var third = MateriluneSetupService.AddPreset(manager);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            // The shown preset goes away while everything left is inactive: the first preset
+            // is deactivated by hand and the second, which was being shown, is destroyed.
+            manager.GetPresets()[0].gameObject.SetActive(false);
+            m_window.SetDisplayedPresetForTests(second);
+            Object.DestroyImmediate(second.gameObject);
+            m_window.SetTargetForTests(target);
+
+            Assert.That(m_window.DisplayedPreset, Is.Not.Null);
+            Assert.That(m_window.DisplayedPreset == third || m_window.DisplayedPreset == manager.GetPresets()[0], Is.True);
+        }
+
         [Test]
         public void ClosingWindowUnsubscribesBeforeUndoAndRedo()
         {

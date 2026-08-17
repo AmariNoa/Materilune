@@ -28,6 +28,11 @@
                     <ui:ListView name="lv-preset-list" style="flex-grow: 1; min-height: 0; background-color: rgb(109, 109, 109); padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;" />
                     <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
                     <ui:Button name="btn-preset-add" style="flex-shrink: 0;" />
+                    <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
+                    <ui:VisualElement style="flex-shrink: 0; flex-direction: row;">
+                        <ui:Button name="btn-preset-import" style="flex-grow: 1; flex-basis: 0;" />
+                        <ui:Button name="btn-preset-export" style="flex-grow: 1; flex-basis: 0;" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement style="flex-grow: 1; flex-direction: row; min-height: 0; min-width: auto; background-color: rgb(77, 77, 77); margin-top: 10px; margin-right: 10px; margin-bottom: 10px; margin-left: 10px; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px; width: 85%; max-width: none;">
                     <ui:VisualElement style="flex-grow: 1; min-height: 0; min-width: 0; width: 40%; padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;">

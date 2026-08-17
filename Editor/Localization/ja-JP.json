@@ -86,7 +86,17 @@
         "fix_order_label": "順序を修正",
         "fix_order_tooltip": "配下の入れ子の設定が効くよう、Materilune オブジェクトを上へ移動します。",
         "batch_swap_button": "一括置換",
-        "preset_active_tooltip": "このプリセットをアクティブにします"
+        "preset_active_tooltip": "このプリセットをアクティブにします",
+        "preset_export_button": "エクスポート",
+        "preset_import_button": "インポート",
+        "preset_export_title": "Materilune プリセットをエクスポート",
+        "preset_import_title": "Materilune プリセットをインポート",
+        "preset_import_close": "閉じる",
+        "preset_import_applied": "{0} 件の置換先を設定しました。",
+        "preset_import_missing": "マテリアルが見つかりません: {0}",
+        "preset_import_unmatched": "一致するメッシュがありません: {0}",
+        "preset_export_failed": "ファイルを書き込めませんでした。保存先を確認してください。",
+        "preset_import_invalid": "Materilune の Swap プリセットとして読み込めないファイルです。"
       },
       "batch_swap": {
         "title": "一括置換",
@@ -125,7 +135,8 @@
       "repair_reference": "Materilune の Root 参照の修復",
       "fix_order": "Materilune の順序を修正",
       "batch_swap": "Materilune の置換先を一括設定",
-      "rename_preset": "Materilune プリセットの名前を変更"
+      "rename_preset": "Materilune プリセットの名前を変更",
+      "import_preset": "Materilune プリセットをインポート"
     },
     "watcher": {
       "repaired": "Materilune はマテリアル差し替えの参照を {0} 件修復しました。"
