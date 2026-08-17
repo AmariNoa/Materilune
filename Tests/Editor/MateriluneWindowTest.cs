@@ -864,6 +864,34 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(other.gameObject.activeSelf, Is.False, "one undo must return the duty too");
         }
 
+        /// <summary>
+        /// Verifies a reorder of the list lands in the scene as sibling order.
+        /// </summary>
+        [Test]
+        public void ReorderingTheListReordersThePresetsInTheScene()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            var first = manager.GetPresets()[0];
+            var second = manager.GetPresets()[1];
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            // The list mutates its item source itself during a drag; the handler only writes
+            // the resulting order back, so the test rearranges the source and fires the event.
+            var presetList = m_window.rootVisualElement.Q<ListView>("lv-preset-list");
+            var items = presetList.itemsSource;
+            items[0] = second;
+            items[1] = first;
+            m_window.ReorderPresetForTests(0, 1);
+
+            var reordered = manager.GetPresets();
+            Assert.That(reordered[0], Is.SameAs(second));
+            Assert.That(reordered[1], Is.SameAs(first));
+        }
+
         [Test]
         public void ClosingWindowUnsubscribesBeforeUndoAndRedo()
         {

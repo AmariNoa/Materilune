@@ -136,7 +136,8 @@
       "fix_order": "Fix Materilune Order",
       "batch_swap": "Batch Swap Materilune Replacements",
       "rename_preset": "Rename Materilune Preset",
-      "import_preset": "Import Materilune Preset"
+      "import_preset": "Import Materilune Preset",
+      "reorder_preset": "Reorder Materilune Presets"
     },
     "watcher": {
       "repaired": "Materilune repaired {0} material swap reference(s)."

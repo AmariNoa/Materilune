@@ -47,6 +47,7 @@ namespace com.amari_noa.materilune.editor
         private Button m_presetExportButton;
         private Button m_presetImportButton;
         private TextField m_activeRenameField;
+        private bool m_rebuildQueued;
         private Button m_overrideBatchButton;
         private Button m_overrideClearButton;
         private VisualElement m_statusBar;
@@ -286,6 +287,7 @@ namespace com.amari_noa.materilune.editor
                 return string.IsNullOrEmpty(currentCode) ? string.Empty : currentCode;
             };
             m_presetList.selectionChanged += OnPresetSelectionChanged;
+            m_presetList.itemIndexChanged += OnPresetReordered;
             m_overrideTree.selectionChanged += OnTreeSelectionChanged;
             m_presetAddButton.clicked += OnPresetAddClicked;
             if (m_fixOrderButton != null)
@@ -415,6 +417,7 @@ namespace com.amari_noa.materilune.editor
             if (m_presetList != null)
             {
                 m_presetList.selectionChanged -= OnPresetSelectionChanged;
+                m_presetList.itemIndexChanged -= OnPresetReordered;
             }
 
             if (m_overrideTree != null)
@@ -510,10 +513,23 @@ namespace com.amari_noa.materilune.editor
 
         private void OnHierarchyChanged()
         {
-            if (m_uiReady)
+            if (!m_uiReady || m_rebuildQueued)
             {
-                Rebuild();
+                return;
             }
+
+            // Coalesced: a drag-reorder or a setup writes the hierarchy several times in one
+            // tick, and each write used to buy its own full rebuild. One deferred rebuild
+            // serves them all; the flag drops the duplicates until it runs.
+            m_rebuildQueued = true;
+            rootVisualElement.schedule.Execute(() =>
+            {
+                m_rebuildQueued = false;
+                if (m_uiReady)
+                {
+                    Rebuild();
+                }
+            });
         }
 
         private void OnLanguageChanged(string languageCode)
@@ -548,6 +564,58 @@ namespace com.amari_noa.materilune.editor
             {
                 m_languageDropdown.SetValueWithoutNotify(changeEvent.previousValue);
             }
+        }
+
+        /// <summary>
+        /// Writes a drag-reorder of the preset list back into the scene.
+        /// </summary>
+        /// <remarks>
+        /// The list only reorders its own item source, a copy; the scene's order is the
+        /// sibling order under the manager, and that is what everything reads. The whole new
+        /// order is applied rather than the one move, which keeps the write simple and lands
+        /// in a single undo step. Order between presets carries no behavioral weight, since
+        /// only one preset is ever active, so this is purely the user's arrangement.
+        /// </remarks>
+        private void OnPresetReordered(int fromIndex, int toIndex)
+        {
+            var presets = m_presetList == null ? null : m_presetList.itemsSource;
+            if (presets == null)
+            {
+                return;
+            }
+
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+            var undoLabel = MateriluneL10n.Get(
+                "materilune.undo.reorder_preset",
+                "Reorder Materilune Presets");
+            Undo.SetCurrentGroupName(undoLabel);
+            try
+            {
+                for (var index = 0; index < presets.Count; index++)
+                {
+                    var preset = presets[index] as MateriluneSwapRoot;
+                    if (preset == null || preset.gameObject == null)
+                    {
+                        continue;
+                    }
+
+                    if (preset.transform.GetSiblingIndex() != index)
+                    {
+                        Undo.SetSiblingIndex(preset.transform, index, undoLabel);
+                    }
+                }
+            }
+            finally
+            {
+                Undo.CollapseUndoOperations(undoGroup);
+            }
+
+            // No rebuild here. The list already shows the new order, and the sibling writes
+            // above raise hierarchyChanged, which schedules one rebuild anyway; doing another
+            // synchronously inside the drop is what made the drop hitch. Only the selection
+            // highlight needs re-deriving, since the displayed preset changed row.
+            ApplyPresetSelection();
         }
 
         private void OnPresetSelectionChanged(IEnumerable<object> selectedItems)
@@ -1338,6 +1406,11 @@ namespace com.amari_noa.materilune.editor
             m_presetList.fixedItemHeight = LabelRowHeight;
             m_presetList.selectionType = SelectionType.Single;
 
+            // Reordering by drag handle. The handle keeps drags apart from everything else a
+            // row already answers to: the radio, the remove button and the rename dblclick.
+            m_presetList.reorderable = true;
+            m_presetList.reorderMode = ListViewReorderMode.Animated;
+
             m_rootSwapList.makeItem = MakeSwapItem;
             m_rootSwapList.bindItem = BindRootSwapItem;
             m_rootSwapList.unbindItem = UnbindSwapItem;
@@ -1901,6 +1974,11 @@ namespace com.amari_noa.materilune.editor
             }
 
             return null;
+        }
+
+        internal void ReorderPresetForTests(int fromIndex, int toIndex)
+        {
+            OnPresetReordered(fromIndex, toIndex);
         }
 
         internal void RemovePresetForTests(MateriluneSwapRoot preset)
@@ -2606,6 +2684,11 @@ namespace com.amari_noa.materilune.editor
 
             if (m_swapButton != null)
             {
+                // The tab it opens is the tab on screen: there is only one page today, so the
+                // button is always the chosen one and always disabled (2026-08-17 の指示で
+                // 表示中タブは選択済み = 操作不能の表示). When a second page arrives, this
+                // becomes per-tab state toggled by whichever tab is shown.
+                m_swapButton.SetEnabled(false);
                 m_swapButton.text = MateriluneL10n.Get(
                     "materilune.ui.window.swap_tab",
                     "Material Swap");

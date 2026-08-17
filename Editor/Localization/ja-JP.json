@@ -136,7 +136,8 @@
       "fix_order": "Materilune の順序を修正",
       "batch_swap": "Materilune の置換先を一括設定",
       "rename_preset": "Materilune プリセットの名前を変更",
-      "import_preset": "Materilune プリセットをインポート"
+      "import_preset": "Materilune プリセットをインポート",
+      "reorder_preset": "Materilune プリセットの並び替え"
     },
     "watcher": {
       "repaired": "Materilune はマテリアル差し替えの参照を {0} 件修復しました。"
