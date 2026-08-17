@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.2.0] - 2026-08-18
+
+### Added
+
+- The Materilune wordmark now sits atop every component inspector, the marker component included, filling the inspector's width and holding its proportions.
+- COPYING.md records the logo's licensing. The logo image stays outside the MIT license; its lettering rests on League Script, under the SIL Open Font License 1.1.
+
 ## [0.1.0] - 2026-08-17
 
 The first stable release.
