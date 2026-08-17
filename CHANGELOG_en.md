@@ -19,6 +19,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.1.0] - 2026-08-17
+
+The first stable release.
+
+### Added
+
+- Preset export and import. One preset travels as one `.mlsp` file (JSON) into another project or setup. Materials are matched by asset GUID, sub-assets included, and anything unresolved is reported by name and path. An import arrives as a new preset and one undo removes it whole.
+- The preset list can be reordered by drag.
+- The language dropdown carries a tooltip naming the actual sharing boundary: tools built on Unity Editor Localization Core.
+
+### Changed
+
+- Removing the active preset hands activation to the preset shown next, inside the same undo step.
+- The target tree hides objects without a mesh anywhere below them, and opens with its root row expanded.
+- The add-preset button moved beside the list title; the shown page tab reads as chosen and takes no clicks.
+- New presets take the first unused SwapN name.
+- Confirmation dialogs put Cancel on the left and the action on the right.
+
+### Fixed
+
+- A batch of preset-list problems where the selection or the active radio came loose after removals, empty-area clicks or same-named presets.
+- The language box sometimes kept showing "Language" instead of the current code.
+
+### Removed
+
+- The target lock toggle left the specification; the window always follows the hierarchy selection.
+
 ## [0.1.0-beta.4] - 2026-08-17
 
 ### Added

@@ -44,10 +44,6 @@
 2. セットアップ済みのオブジェクトには、Hierarchyの行に `Mt` ボタンが表示されます。これを押すとMateriluneウィンドウが開きます。
 3. ウィンドウでプリセットを追加し、各メッシュのマテリアルに差し替え先を指定します。差し替え先を指定した設定のみがModular Avatarへ反映されます。
 
-## 現在の状態
-
-本パッケージはベータ版です。仕様と公開APIは変更される場合があります。
-
 ## パッケージ開発における AI の取り扱い
 
 - 本パッケージの開発にはCodexおよびClaude Codeを使用しています。
@@ -93,10 +89,6 @@ To browse the listing directly, visit the page below.
 1. Right-click the target avatar or object in the Hierarchy and run `Materilune > Setup Materilune` (also available from the GameObject menu).
 2. A `Mt` button appears on the Hierarchy row of every object that has been set up. Press it to open the Materilune window.
 3. Add a preset in the window and choose a replacement for each mesh material. Only entries with a replacement are written to Modular Avatar.
-
-## Current state
-
-This package is in beta. The specification and the public API may change.
 
 ## Use of AI in Package Development
 
