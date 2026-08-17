@@ -85,7 +85,8 @@
         "status_order_not_guaranteed": "A Materilune setup nested in this object is being overridden by this one. Move the Materilune object to the top of the children of {0}.",
         "fix_order_label": "Fix order",
         "fix_order_tooltip": "Move the Materilune object above the nested setups so they take effect.",
-        "batch_swap_button": "Batch swap"
+        "batch_swap_button": "Batch swap",
+        "preset_active_tooltip": "Make this the active preset"
       },
       "batch_swap": {
         "title": "Batch swap",
@@ -123,7 +124,8 @@
       "rebuild_entries": "Rebuild Materilune Swap Entries",
       "repair_reference": "Repair Materilune Root Reference",
       "fix_order": "Fix Materilune Order",
-      "batch_swap": "Batch Swap Materilune Replacements"
+      "batch_swap": "Batch Swap Materilune Replacements",
+      "rename_preset": "Rename Materilune Preset"
     },
     "watcher": {
       "repaired": "Materilune repaired {0} material swap reference(s)."

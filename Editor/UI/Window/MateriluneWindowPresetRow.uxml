@@ -1,6 +1,10 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
     <ui:VisualElement name="elm-preset-row" style="flex-grow: 1; flex-direction: row; align-items: center; min-width: 0;">
-        <ui:Label name="lbl-preset-name" style="flex-grow: 1; flex-shrink: 1; min-width: 0; overflow: hidden;" />
+        <ui:RadioButton name="tgl-preset-active" style="flex-shrink: 0; margin-left: 0; margin-right: 2px; width: 16px;" />
+        <ui:VisualElement name="elm-preset-name-slot" style="flex-grow: 1; flex-shrink: 1; min-width: 0;">
+            <ui:Label name="lbl-preset-name" style="flex-grow: 1; min-width: 0; overflow: hidden;" />
+            <ui:TextField name="txt-preset-name" style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; margin: 0; visibility: hidden;" />
+        </ui:VisualElement>
         <ui:Button name="btn-preset-remove" style="flex-shrink: 0; width: 20px; min-width: 20px; padding-left: 0; padding-right: 0; margin-left: 2px; margin-right: 0;" />
     </ui:VisualElement>
 </ui:UXML>

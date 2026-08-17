@@ -85,7 +85,8 @@
         "status_order_not_guaranteed": "このオブジェクトの設定が、配下の入れ子の Materilune 設定を上書きしています。Materilune オブジェクトを {0} の子の一番上へ移動してください。",
         "fix_order_label": "順序を修正",
         "fix_order_tooltip": "配下の入れ子の設定が効くよう、Materilune オブジェクトを上へ移動します。",
-        "batch_swap_button": "一括置換"
+        "batch_swap_button": "一括置換",
+        "preset_active_tooltip": "このプリセットをアクティブにします"
       },
       "batch_swap": {
         "title": "一括置換",
@@ -116,14 +117,15 @@
       "setup": "Materilune のセットアップ",
       "sync": "Materilune の同期",
       "add_preset": "Materilune プリセットの追加",
-      "activate_preset": "Materilune プリセットのアクティブ化",
+      "activate_preset": "Materilune プリセットをアクティブ化",
       "deactivate_preset": "Materilune プリセットの非アクティブ化",
       "clear_replacements": "Materilune の置き換えの解除",
       "update_entries": "Materilune のエントリの更新",
       "rebuild_entries": "Materilune の置換エントリの再生成",
       "repair_reference": "Materilune の Root 参照の修復",
       "fix_order": "Materilune の順序を修正",
-      "batch_swap": "Materilune の置換先を一括設定"
+      "batch_swap": "Materilune の置換先を一括設定",
+      "rename_preset": "Materilune プリセットの名前を変更"
     },
     "watcher": {
       "repaired": "Materilune はマテリアル差し替えの参照を {0} 件修復しました。"

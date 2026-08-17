@@ -248,7 +248,7 @@ namespace com.amari_noa.materilune.tests.editor
         /// Verifies selecting another preset switches the displayed preset.
         /// </summary>
         [Test]
-        public void ActivatingAnotherPresetSwitchesTheDisplayedPreset()
+        public void SelectingAnotherPresetSwitchesTheDisplayedPreset()
         {
             var target = CreateTarget();
             CreateRenderer("Renderer", target.transform);
@@ -292,7 +292,7 @@ namespace com.amari_noa.materilune.tests.editor
         /// since an all-inactive manager must stay distinguishable from a fallback.
         /// </summary>
         [Test]
-        public void ActivatingFromAllInactiveSwitchesTheDisplayedPreset()
+        public void SelectingFromAllInactiveSwitchesTheDisplayedPreset()
         {
             var target = CreateTarget();
             CreateRenderer("Renderer", target.transform);
@@ -310,11 +310,17 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         /// <summary>
-        /// Verifies undoing a preset switch also moves the display back, so the window never
-        /// edits a preset that is no longer the active one.
+        /// Verifies selecting a row is a display act alone: nothing activates, nothing lands
+        /// on the undo stack.
         /// </summary>
+        /// <remarks>
+        /// Selection used to activate the preset as a side effect, and a test held that
+        /// behavior in place. The activation toggle replaced it (spec 4.9): the row picks what
+        /// is edited, the toggle picks what the avatar wears, and an inactive preset can be
+        /// edited without being switched on.
+        /// </remarks>
         [Test]
-        public void UndoingAPresetSwitchMovesTheDisplayBack()
+        public void SelectingAPresetDisplaysItWithoutActivatingIt()
         {
             var target = CreateTarget();
             CreateRenderer("Renderer", target.transform);
@@ -330,18 +336,17 @@ namespace com.amari_noa.materilune.tests.editor
             m_window.SetTargetForTests(target);
 
             m_window.rootVisualElement.Q<ListView>("lv-preset-list").SetSelection(1);
-            Assert.That(m_window.DisplayedPreset, Is.SameAs(secondPreset));
 
+            Assert.That(m_window.DisplayedPreset, Is.SameAs(secondPreset));
+            Assert.That(firstPreset.gameObject.activeSelf, Is.True, "selection must not deactivate");
+            Assert.That(secondPreset.gameObject.activeSelf, Is.False, "selection must not activate");
+
+            // Nothing was changed, so an undo must find nothing to take back.
             Undo.FlushUndoRecordObjects();
             MateriluneInspectorIsolation.PerformUndo();
 
             Assert.That(firstPreset.gameObject.activeSelf, Is.True);
-            Assert.That(m_window.DisplayedPreset, Is.SameAs(firstPreset));
-
-            MateriluneInspectorIsolation.PerformRedo();
-
-            Assert.That(secondPreset.gameObject.activeSelf, Is.True);
-            Assert.That(m_window.DisplayedPreset, Is.SameAs(secondPreset));
+            Assert.That(secondPreset.gameObject.activeSelf, Is.False);
         }
 
         /// <summary>
@@ -562,6 +567,133 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(removeButton.enabledSelf, Is.True);
             Assert.That(row.Q<Label>("lbl-preset-name").text,
                 Is.EqualTo(manager.GetPresets()[0].gameObject.name));
+        }
+
+        /// <summary>
+        /// Verifies the row's toggle reflects the preset's active state.
+        /// </summary>
+        [Test]
+        public void PresetRowToggleShowsTheActiveState()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            var activeRow = m_window.BuildPresetRowForTests(0);
+            var inactiveRow = m_window.BuildPresetRowForTests(1);
+
+            Assert.That(activeRow.Q<RadioButton>("tgl-preset-active").value, Is.True);
+            Assert.That(inactiveRow.Q<RadioButton>("tgl-preset-active").value, Is.False);
+        }
+
+        /// <summary>
+        /// Verifies activating a preset from the window leaves exactly that one active.
+        /// </summary>
+        /// <remarks>
+        /// The window itself only switches one on; the single-active watcher is what puts the
+        /// other out, and the pair must land inside one undo step.
+        /// </remarks>
+        [Test]
+        public void ActivatingAPresetLeavesOnlyThatPresetActive()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            var presets = manager.GetPresets();
+            Assert.That(presets[0].gameObject.activeSelf, Is.True, "the first preset should start active");
+            Assert.That(presets[1].gameObject.activeSelf, Is.False, "the added preset should start inactive");
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            m_window.ActivatePresetForTests(presets[1]);
+
+            Assert.That(presets[1].gameObject.activeSelf, Is.True);
+            Assert.That(presets[0].gameObject.activeSelf, Is.False);
+        }
+
+        /// <summary>
+        /// Verifies one undo restores the previous active arrangement whole.
+        /// </summary>
+        [Test]
+        public void UndoingAnActivationRestoresThePreviousArrangement()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            var presets = manager.GetPresets();
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            m_window.ActivatePresetForTests(presets[1]);
+            Undo.FlushUndoRecordObjects();
+            MateriluneInspectorIsolation.PerformUndo();
+
+            Assert.That(presets[0].gameObject.activeSelf, Is.True);
+            Assert.That(presets[1].gameObject.activeSelf, Is.False);
+        }
+
+        /// <summary>
+        /// Verifies the rename field sits in the row, hidden without leaving the layout.
+        /// </summary>
+        /// <remarks>
+        /// The field lies over the label, so starting an edit must not move the row; hiding it
+        /// with visibility rather than display is what this pins down.
+        /// </remarks>
+        [Test]
+        public void PresetRowKeepsTheRenameFieldHiddenInPlace()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            var row = m_window.BuildPresetRowForTests(0);
+            var nameField = row.Q<TextField>("txt-preset-name");
+
+            Assert.That(nameField, Is.Not.Null);
+            Assert.That(nameField.visible, Is.False);
+            Assert.That(nameField.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+        }
+
+        /// <summary>
+        /// Verifies a pooled row renames only the preset it currently shows.
+        /// </summary>
+        /// <remarks>
+        /// The list reuses its rows. A rename handler left over from an earlier binding kept
+        /// its captured preset and fired alongside the new one, so renaming the row's current
+        /// preset also renamed whichever preset the row used to show.
+        /// </remarks>
+        [Test]
+        public void RebindingAPresetRowDropsTheOldRenameTarget()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            var presets = manager.GetPresets();
+            var firstName = presets[0].gameObject.name;
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            // The same row is bound to one preset and then reused for another, which is what
+            // the ListView's pooling does on scroll. The field only dispatches its change
+            // event while attached to a panel, so the row is hosted in the window.
+            var row = m_window.BuildPresetRowForTests(0);
+            m_window.rootVisualElement.Add(row);
+            m_window.RebindPresetRowForTests(row, 1);
+
+            row.Q<TextField>("txt-preset-name").value = "Renamed";
+
+            Assert.That(presets[1].gameObject.name, Is.EqualTo("Renamed"));
+            Assert.That(presets[0].gameObject.name, Is.EqualTo(firstName));
         }
 
         [Test]

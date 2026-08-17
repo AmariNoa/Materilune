@@ -216,9 +216,10 @@ namespace com.amari_noa.materilune.editor
             m_selected.Clear();
             for (var index = 0; index < m_plan.Count; index++)
             {
-                // Rows that already carry a replacement start unticked: overwriting a choice
-                // someone made by hand should take a deliberate press, not a default.
-                if (m_plan[index].Status == MateriluneBatchSwapStatus.Ready)
+                // Every applicable row starts ticked, overwrites included (2026-08-17 の指示で
+                // 既定を全選択へ変更). The list still spells out which rows replace an existing
+                // setting, and unticking is one press.
+                if (m_plan[index].IsApplicable)
                 {
                     m_selected.Add(index);
                 }

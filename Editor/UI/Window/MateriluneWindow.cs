@@ -44,6 +44,7 @@ namespace com.amari_noa.materilune.editor
         private Button m_presetAddButton;
         private Button m_rootClearButton;
         private Button m_rootBatchButton;
+        private TextField m_activeRenameField;
         private Button m_overrideBatchButton;
         private Button m_overrideClearButton;
         private VisualElement m_statusBar;
@@ -267,6 +268,7 @@ namespace com.amari_noa.materilune.editor
             m_targetField.objectType = typeof(GameObject);
             m_targetField.allowSceneObjects = true;
             m_targetField.SetEnabled(false);
+            rootVisualElement.RegisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
             ConfigureListAndTreeViews();
             m_languageDropdown.RegisterValueChangedCallback(OnLanguageValueChanged);
             m_presetList.selectionChanged += OnPresetSelectionChanged;
@@ -374,6 +376,9 @@ namespace com.amari_noa.materilune.editor
 
         private void UnsubscribeUiCallbacks()
         {
+            rootVisualElement.UnregisterCallback<PointerDownEvent>(OnRootPointerDown, TrickleDown.TrickleDown);
+            m_activeRenameField = null;
+
             if (m_languageDropdown != null)
             {
                 m_languageDropdown.UnregisterValueChangedCallback(OnLanguageValueChanged);
@@ -514,7 +519,7 @@ namespace com.amari_noa.materilune.editor
 
             if (selectedPreset != null)
             {
-                ActivatePreset(selectedPreset);
+                DisplayPreset(selectedPreset);
             }
         }
 
@@ -1213,7 +1218,10 @@ namespace com.amari_noa.materilune.editor
             UnbindPresetItem(element, index);
             var label = element == null ? null : element.Q<Label>("lbl-preset-name");
             var removeButton = element == null ? null : element.Q<Button>("btn-preset-remove");
-            if (label == null || removeButton == null)
+            var activeToggle = element == null ? null : element.Q<RadioButton>("tgl-preset-active");
+            var nameField = element == null ? null : element.Q<TextField>("txt-preset-name");
+            var nameSlot = element == null ? null : element.Q<VisualElement>("elm-preset-name-slot");
+            if (label == null || removeButton == null || activeToggle == null || nameField == null || nameSlot == null)
             {
                 return;
             }
@@ -1222,6 +1230,9 @@ namespace com.amari_noa.materilune.editor
             label.RemoveFromClassList(ActivePresetClass);
             removeButton.text = "-";
             removeButton.SetEnabled(false);
+            activeToggle.SetValueWithoutNotify(false);
+            activeToggle.SetEnabled(false);
+            nameField.visible = false;
             var presets = m_presetList == null ? null : m_presetList.itemsSource;
             if (presets == null || index < 0 || index >= presets.Count)
             {
@@ -1244,8 +1255,164 @@ namespace com.amari_noa.materilune.editor
             Action removeAction = () => RemovePreset(capturedPreset);
             removeButton.clicked += removeAction;
             removeButton.SetEnabled(presets.Count > 1);
-            m_presetRowBindings[element] = new PresetRowBinding(removeButton, removeAction);
-            ApplyPresetRowLocalizedText(removeButton);
+
+            // The toggle activates only. Toggling the active preset off would leave nothing
+            // applied through a single misclick, so switching everything off stays a hierarchy
+            // operation. The change event fires for that click too, and putting the tick back
+            // is what keeps the control honest about the state it shows.
+            activeToggle.SetValueWithoutNotify(preset.gameObject.activeSelf);
+            activeToggle.SetEnabled(true);
+
+            EventCallback<ChangeEvent<bool>> activeChanged = changeEvent =>
+            {
+                if (changeEvent.newValue)
+                {
+                    ActivatePreset(capturedPreset);
+                    return;
+                }
+
+                var toggle = changeEvent.currentTarget as RadioButton;
+                toggle?.SetValueWithoutNotify(true);
+            };
+            activeToggle.RegisterValueChangedCallback(activeChanged);
+
+            EventCallback<ClickEvent> nameSlotClicked;
+            EventCallback<ChangeEvent<string>> nameChanged;
+            EventCallback<KeyDownEvent> nameKeyDown;
+            EventCallback<FocusOutEvent> nameFocusOut;
+            ConfigurePresetRename(
+                nameSlot,
+                label,
+                nameField,
+                capturedPreset,
+                out nameSlotClicked,
+                out nameChanged,
+                out nameKeyDown,
+                out nameFocusOut);
+            m_presetRowBindings[element] = new PresetRowBinding(
+                removeButton,
+                removeAction,
+                activeToggle,
+                activeChanged,
+                nameSlot,
+                nameField,
+                nameSlotClicked,
+                nameChanged,
+                nameKeyDown,
+                nameFocusOut);
+            ApplyPresetRowLocalizedText(removeButton, activeToggle);
+        }
+
+        /// <summary>
+        /// Ends a rename when the pointer goes down anywhere outside the field.
+        /// </summary>
+        /// <remarks>
+        /// Focus alone cannot be relied on for this: clicking a plain label or an empty area
+        /// moves no focus in UI Toolkit, so the field would stay open. The pointer is watched
+        /// at the window root during the capture phase instead, and a press outside the field
+        /// blurs it, which commits a changed value through the delayed change event before the
+        /// field is put away.
+        /// </remarks>
+        private void OnRootPointerDown(PointerDownEvent pointerEvent)
+        {
+            var field = m_activeRenameField;
+            if (field == null)
+            {
+                return;
+            }
+
+            if (!field.visible)
+            {
+                m_activeRenameField = null;
+                return;
+            }
+
+            if (field.worldBound.Contains((Vector2)pointerEvent.position))
+            {
+                return;
+            }
+
+            field.Blur();
+            field.visible = false;
+            m_activeRenameField = null;
+        }
+
+        /// <summary>
+        /// Wires the in-place rename: double-click to edit, Enter to keep, Esc to drop.
+        /// </summary>
+        /// <remarks>
+        /// The field lies over the label and is hidden with visibility, so starting and ending
+        /// an edit moves nothing. Only the object's name changes; nothing matches on names, so
+        /// the rename cannot break a reference. A name that is empty once trimmed is treated
+        /// as a cancel rather than written, since a nameless row cannot be told apart.
+        /// </remarks>
+        private void ConfigurePresetRename(
+            VisualElement nameSlot,
+            Label label,
+            TextField nameField,
+            MateriluneSwapRoot preset,
+            out EventCallback<ClickEvent> nameSlotClicked,
+            out EventCallback<ChangeEvent<string>> nameChanged,
+            out EventCallback<KeyDownEvent> nameKeyDown,
+            out EventCallback<FocusOutEvent> nameFocusOut)
+        {
+            nameField.isDelayed = true;
+
+            // Only the name area opens the edit. The whole row would also catch double clicks
+            // bubbling out of the toggle and the remove button.
+            nameSlotClicked = clickEvent =>
+            {
+                if (clickEvent.clickCount != 2 || preset == null || preset.gameObject == null)
+                {
+                    return;
+                }
+
+                nameField.SetValueWithoutNotify(preset.gameObject.name);
+                nameField.visible = true;
+                m_activeRenameField = nameField;
+
+                // No select-all here. Programmatic focus and text selection race each other in
+                // this editor version and the attempts to sequence them did not hold up, so the
+                // edit simply opens with a caret (2026-08-17 の判断で自動選択は見送り).
+                nameField.Focus();
+            };
+            nameSlot.RegisterCallback(nameSlotClicked);
+
+            // isDelayed makes the change event fire on Enter or focus loss, not per keystroke.
+            nameChanged = changeEvent =>
+            {
+                nameField.visible = false;
+                var newName = changeEvent.newValue == null ? string.Empty : changeEvent.newValue.Trim();
+                if (preset == null
+                    || preset.gameObject == null
+                    || newName.Length == 0
+                    || newName == preset.gameObject.name)
+                {
+                    return;
+                }
+
+                Undo.RecordObject(preset.gameObject, MateriluneL10n.Get(
+                    "materilune.undo.rename_preset",
+                    "Rename Materilune Preset"));
+                preset.gameObject.name = newName;
+                label.text = newName;
+            };
+            nameField.RegisterValueChangedCallback(nameChanged);
+
+            nameKeyDown = keyEvent =>
+            {
+                if (keyEvent.keyCode == KeyCode.Escape)
+                {
+                    nameField.visible = false;
+                }
+            };
+            nameField.RegisterCallback(nameKeyDown);
+
+            // Clicking anywhere else ends the edit too. The delayed change event only fires
+            // when the value differs, so an untouched field would otherwise sit open over the
+            // label until Enter or Escape was pressed inside it.
+            nameFocusOut = _ => nameField.visible = false;
+            nameField.RegisterCallback(nameFocusOut);
         }
 
         private VisualElement MakePresetItem()
@@ -1269,7 +1436,13 @@ namespace com.amari_noa.materilune.editor
             PresetRowBinding binding;
             if (m_presetRowBindings.TryGetValue(element, out binding))
             {
-                binding.RemoveButton.clicked -= binding.RemoveAction;
+                binding.Unregister();
+                if (m_activeRenameField != null && m_activeRenameField == binding.NameField)
+                {
+                    m_activeRenameField.visible = false;
+                    m_activeRenameField = null;
+                }
+
                 m_presetRowBindings.Remove(element);
             }
 
@@ -1321,6 +1494,37 @@ namespace com.amari_noa.materilune.editor
             }
         }
 
+        /// <summary>
+        /// Shows a preset in the editing panels without touching its active state.
+        /// </summary>
+        /// <param name="preset">The preset to edit.</param>
+        /// <remarks>
+        /// Selecting a row used to activate the preset as a side effect. With the activation
+        /// toggle in the row, the two are separate: the row picks what is edited, the toggle
+        /// picks what the avatar wears, and an inactive preset can be worked on in peace.
+        /// </remarks>
+        private void DisplayPreset(MateriluneSwapRoot preset)
+        {
+            var manager = ResolvedManager;
+            if (manager == null || preset == null || preset.gameObject == null || !ContainsPreset(manager, preset))
+            {
+                return;
+            }
+
+            m_activePreset = preset;
+            BindRoot(preset);
+            ApplyPresetSelection();
+            BindOverride(m_selectedRenderer);
+        }
+
+        /// <summary>
+        /// Makes one preset the active one, putting every other preset out itself.
+        /// </summary>
+        /// <param name="preset">The preset to activate.</param>
+        /// <remarks>
+        /// The whole change lands in one undo group: the activation, the deactivations and the
+        /// prefab bookkeeping, so one undo restores the previous arrangement entire.
+        /// </remarks>
         private void ActivatePreset(MateriluneSwapRoot preset)
         {
             var manager = ResolvedManager;
@@ -1331,10 +1535,6 @@ namespace com.amari_noa.materilune.editor
 
             if (preset.gameObject.activeSelf)
             {
-                m_activePreset = preset;
-                BindRoot(preset);
-                ApplyPresetSelection();
-                BindOverride(m_selectedRenderer);
                 return;
             }
 
@@ -1495,6 +1695,16 @@ namespace com.amari_noa.materilune.editor
         /// </summary>
         /// <param name="index">The preset index to bind.</param>
         /// <returns>The bound row, or <see langword="null" /> when the row cannot be built.</returns>
+        internal void ActivatePresetForTests(MateriluneSwapRoot preset)
+        {
+            ActivatePreset(preset);
+        }
+
+        internal void RebindPresetRowForTests(VisualElement row, int index)
+        {
+            BindPresetItem(row, index);
+        }
+
         internal VisualElement BuildPresetRowForTests(int index)
         {
             var row = MakePresetItem();
@@ -1626,10 +1836,11 @@ namespace com.amari_noa.materilune.editor
         {
             foreach (var binding in new List<PresetRowBinding>(m_presetRowBindings.Values))
             {
-                binding.RemoveButton.clicked -= binding.RemoveAction;
+                binding.Unregister();
             }
 
             m_presetRowBindings.Clear();
+            m_activeRenameField = null;
         }
 
         private void ClearSwapRowBindings()
@@ -2133,7 +2344,7 @@ namespace com.amari_noa.materilune.editor
 
             foreach (var binding in m_presetRowBindings.Values)
             {
-                ApplyPresetRowLocalizedText(binding.RemoveButton);
+                ApplyPresetRowLocalizedText(binding.RemoveButton, binding.ActiveToggle);
             }
 
             if (m_rootHeader != null)
@@ -2195,8 +2406,15 @@ namespace com.amari_noa.materilune.editor
                 "Set every replacement in this panel back to none");
         }
 
-        private static void ApplyPresetRowLocalizedText(Button removeButton)
+        private static void ApplyPresetRowLocalizedText(Button removeButton, RadioButton activeToggle)
         {
+            if (activeToggle != null)
+            {
+                activeToggle.tooltip = MateriluneL10n.Get(
+                    "materilune.ui.window.preset_active_tooltip",
+                    "Make this the active preset");
+            }
+
             if (removeButton == null)
             {
                 return;
@@ -2227,11 +2445,58 @@ namespace com.amari_noa.materilune.editor
         {
             internal readonly Button RemoveButton;
             internal readonly Action RemoveAction;
+            internal readonly RadioButton ActiveToggle;
+            internal readonly EventCallback<ChangeEvent<bool>> ActiveChanged;
+            internal readonly VisualElement NameSlot;
+            internal readonly TextField NameField;
+            internal readonly EventCallback<ClickEvent> NameSlotClicked;
+            internal readonly EventCallback<ChangeEvent<string>> NameChanged;
+            internal readonly EventCallback<KeyDownEvent> NameKeyDown;
+            internal readonly EventCallback<FocusOutEvent> NameFocusOut;
 
-            internal PresetRowBinding(Button removeButton, Action removeAction)
+            internal PresetRowBinding(
+                Button removeButton,
+                Action removeAction,
+                RadioButton activeToggle,
+                EventCallback<ChangeEvent<bool>> activeChanged,
+                VisualElement nameSlot,
+                TextField nameField,
+                EventCallback<ClickEvent> nameSlotClicked,
+                EventCallback<ChangeEvent<string>> nameChanged,
+                EventCallback<KeyDownEvent> nameKeyDown,
+                EventCallback<FocusOutEvent> nameFocusOut)
             {
                 RemoveButton = removeButton;
                 RemoveAction = removeAction;
+                ActiveToggle = activeToggle;
+                ActiveChanged = activeChanged;
+                NameSlot = nameSlot;
+                NameField = nameField;
+                NameSlotClicked = nameSlotClicked;
+                NameChanged = nameChanged;
+                NameKeyDown = nameKeyDown;
+                NameFocusOut = nameFocusOut;
+            }
+
+            /// <summary>
+            /// Takes every callback this row registered back off it.
+            /// </summary>
+            /// <remarks>
+            /// The rows are pooled: one left registered would keep its captured preset alive
+            /// and fire for it long after the row shows another, which for the rename means
+            /// writing the new name onto a preset that is no longer on screen.
+            /// </remarks>
+            internal void Unregister()
+            {
+                RemoveButton.clicked -= RemoveAction;
+                ActiveToggle?.UnregisterValueChangedCallback(ActiveChanged);
+                NameSlot?.UnregisterCallback(NameSlotClicked);
+                if (NameField != null)
+                {
+                    NameField.UnregisterValueChangedCallback(NameChanged);
+                    NameField.UnregisterCallback(NameKeyDown);
+                    NameField.UnregisterCallback(NameFocusOut);
+                }
             }
         }
 
