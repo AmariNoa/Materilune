@@ -23,11 +23,12 @@
             </ui:VisualElement>
             <ui:VisualElement name="elm-tab-page-material-swap" style="flex-grow: 1; flex-direction: row; justify-content: space-between; min-height: 0;">
                 <ui:VisualElement style="flex-grow: 1; max-width: 15%; min-height: 0; min-width: 15%; background-color: rgb(77, 77, 77); margin-top: 10px; margin-right: 10px; margin-bottom: 10px; margin-left: 10px; padding-top: 10px; padding-right: 10px; padding-bottom: 10px; padding-left: 10px; width: 15%;">
-                    <ui:Label tabindex="-1" text="Preset List" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-shrink: 0;" />
+                    <ui:VisualElement style="flex-shrink: 0; flex-direction: row; align-items: center;">
+                        <ui:Label tabindex="-1" text="Preset List" parse-escape-sequences="true" display-tooltip-when-elided="true" style="flex-grow: 1; flex-shrink: 1; min-width: 0; overflow: hidden;" />
+                        <ui:Button name="btn-preset-add" style="flex-shrink: 0; width: 22px; min-width: 22px; padding-left: 0; padding-right: 0; margin-right: 0;" />
+                    </ui:VisualElement>
                     <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
                     <ui:ListView name="lv-preset-list" style="flex-grow: 1; min-height: 0; background-color: rgb(109, 109, 109); padding-top: 5px; padding-right: 5px; padding-bottom: 5px; padding-left: 5px;" />
-                    <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
-                    <ui:Button name="btn-preset-add" style="flex-shrink: 0;" />
                     <ui:VisualElement style="flex-grow: 1; height: 5px; max-height: 5px;" />
                     <ui:VisualElement style="flex-shrink: 0; flex-direction: row;">
                         <ui:Button name="btn-preset-import" style="flex-grow: 1; flex-basis: 0;" />

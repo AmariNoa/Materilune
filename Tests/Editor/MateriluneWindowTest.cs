@@ -726,6 +726,69 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(m_window.DisplayedPreset == third || m_window.DisplayedPreset == manager.GetPresets()[0], Is.True);
         }
 
+        /// <summary>
+        /// Verifies branches without a renderer anywhere below them stay out of the tree.
+        /// </summary>
+        /// <remarks>
+        /// The tree exists to pick a mesh; armature bones and anchor points cannot end in one
+        /// and only bury the rows that can.
+        /// </remarks>
+        [Test]
+        public void TheTargetTreeHidesBranchesWithoutRenderers()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Body", target.transform);
+            var armature = CreateGameObject("Armature", target.transform);
+            CreateGameObject("Hips", armature.transform);
+            var clothed = CreateGameObject("Outfit", target.transform);
+            CreateRenderer("OutfitMesh", clothed.transform);
+            MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            m_window = MateriluneWindow.OpenForTests();
+
+            m_window.SetTargetForTests(target);
+
+            var tree = m_window.rootVisualElement.Q<TreeView>("tv-swap-override-components");
+            var rootIds = tree.GetRootIds();
+            var rootId = -1;
+            foreach (var id in rootIds)
+            {
+                rootId = id;
+                break;
+            }
+
+            var childIds = new List<int>(tree.viewController.GetChildrenIds(rootId));
+            Assert.That(childIds, Has.Count.EqualTo(2), "only the branches that reach a renderer remain");
+            Assert.That(childIds, Has.No.Member(armature.transform.GetInstanceID()));
+        }
+
+        /// <summary>
+        /// Verifies the list snaps back to the displayed preset when its selection is dropped.
+        /// </summary>
+        /// <remarks>
+        /// A click on the empty area under the rows, a ctrl-click on the selected row or
+        /// Escape clears a ListView's selection without choosing anything else. The window
+        /// keeps showing the same preset through all of those, so the list has to come back
+        /// to it rather than sit unselected.
+        /// </remarks>
+        [Test]
+        public void PresetListReselectsTheDisplayedPresetWhenSelectionIsCleared()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            MateriluneSetupService.AddPreset(manager);
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            var presetList = m_window.rootVisualElement.Q<ListView>("lv-preset-list");
+            Assert.That(presetList.selectedIndex, Is.EqualTo(0), "the displayed preset should start selected");
+
+            presetList.ClearSelection();
+
+            Assert.That(presetList.selectedIndex, Is.EqualTo(0));
+            Assert.That(m_window.DisplayedPreset, Is.SameAs(manager.GetPresets()[0]));
+        }
+
         [Test]
         public void ClosingWindowUnsubscribesBeforeUndoAndRedo()
         {

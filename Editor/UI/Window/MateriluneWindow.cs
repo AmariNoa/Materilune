@@ -570,7 +570,14 @@ namespace com.amari_noa.materilune.editor
             if (selectedPreset != null)
             {
                 DisplayPreset(selectedPreset);
+                return;
             }
+
+            // The list can lose its selection without anyone choosing a preset: a click on
+            // the empty area below the rows, a ctrl-click on the selected row, Escape. The
+            // window still shows and edits the same preset, so a list claiming that nothing
+            // is chosen would be lying; the selection is put back on what is displayed.
+            ApplyPresetSelection();
         }
 
         private void OnTreeSelectionChanged(IEnumerable<object> selectedItems)
@@ -2075,7 +2082,9 @@ namespace com.amari_noa.materilune.editor
             for (var index = 0; index < transform.childCount; index++)
             {
                 var child = transform.GetChild(index);
-                if (child == null || MateriluneSetupService.IsExcludedObject(child))
+                if (child == null
+                    || MateriluneSetupService.IsExcludedObject(child)
+                    || !CarriesAnyRenderer(child))
                 {
                     continue;
                 }
@@ -2084,6 +2093,41 @@ namespace com.amari_noa.materilune.editor
             }
 
             return new TreeViewItemData<Transform>(transform.GetInstanceID(), transform, children);
+        }
+
+        /// <summary>
+        /// Tells whether a subtree holds any renderer at all.
+        /// </summary>
+        /// <param name="transform">The root of the subtree.</param>
+        /// <returns><see langword="true" /> when a renderer exists on or below it.</returns>
+        /// <remarks>
+        /// The tree exists to pick a mesh, so a branch that cannot end in one is dead weight:
+        /// armature bones, colliders, anchor points (2026-08-17 の指示で非表示に). The excluded
+        /// operation hierarchy does not count; a branch whose only renderers belong to it
+        /// would otherwise stay visible with nothing selectable inside.
+        /// </remarks>
+        private static bool CarriesAnyRenderer(Transform transform)
+        {
+            if (transform.GetComponent<Renderer>() != null)
+            {
+                return true;
+            }
+
+            for (var index = 0; index < transform.childCount; index++)
+            {
+                var child = transform.GetChild(index);
+                if (child == null || MateriluneSetupService.IsExcludedObject(child))
+                {
+                    continue;
+                }
+
+                if (CarriesAnyRenderer(child))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void BindTreeItem(VisualElement element, int index)
