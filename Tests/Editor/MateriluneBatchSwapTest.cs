@@ -5,6 +5,7 @@ using com.amari_noa.materilune.runtime;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace com.amari_noa.materilune.tests.editor
@@ -56,6 +57,58 @@ namespace com.amari_noa.materilune.tests.editor
                     window.Close();
                 }
             }
+        }
+
+        /// <summary>
+        /// Verifies an example-picking row carries its material in the right-end preview slot,
+        /// and a plan row leaves the slot empty.
+        /// </summary>
+        [Test]
+        public void SourceRowsCarryTheMaterialForThePreview()
+        {
+            var source = CreateAsset("PrismRibbon_001Pink.mat");
+            MateriluneBatchSwapWindow.Open(
+                new List<MateriluneMaterialSwapEntry> { new MateriluneMaterialSwapEntry(source, null) },
+                MateriluneCandidateMode.None,
+                approved => { });
+            var window = Resources.FindObjectsOfTypeAll<MateriluneBatchSwapWindow>()[0];
+
+            var row = window.BuildRowForTests(0);
+            var preview = row.Q<Image>("img-row-preview");
+
+            Assert.That(preview, Is.Not.Null);
+            Assert.That(preview.userData, Is.SameAs(source));
+        }
+
+        /// <summary>
+        /// Verifies a plan row's thumbnail follows the tick: the replacement while the row is
+        /// ticked, the material as it is once the tick comes off.
+        /// </summary>
+        [Test]
+        public void PlanRowsPreviewTheMaterialTheTickDecides()
+        {
+            var source = CreateAsset("PrismRibbon_001Pink.mat");
+            var replacement = CreateAsset("PrismRibbon_002Blue.mat");
+            MateriluneBatchSwapWindow.Open(
+                new List<MateriluneMaterialSwapEntry> { new MateriluneMaterialSwapEntry(source, null) },
+                MateriluneCandidateMode.SameDirectory,
+                approved => { });
+            var window = Resources.FindObjectsOfTypeAll<MateriluneBatchSwapWindow>()[0];
+            window.ChooseExampleForTests(source, replacement);
+
+            var row = window.BuildRowForTests(0);
+            // A detached element dispatches no change events, so the row joins the shown
+            // window's panel before the toggle is pressed.
+            window.rootVisualElement.Add(row);
+            var toggle = row.Q<Toggle>("tgl-row");
+            var preview = row.Q<Image>("img-row-preview");
+            Assert.That(toggle, Is.Not.Null);
+            Assert.That(preview, Is.Not.Null);
+            Assert.That(preview.userData, Is.SameAs(replacement), "a ticked row previews the replacement");
+
+            toggle.value = false;
+
+            Assert.That(preview.userData, Is.SameAs(source), "an unticked row previews the source");
         }
 
         /// <summary>

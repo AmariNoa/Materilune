@@ -27,6 +27,10 @@ namespace com.amari_noa.materilune.editor
         private const float WindowWidth = 520f;
         private const float WindowHeight = 380f;
 
+        // Unity draws asset previews in the background; this is how often a row asks again
+        // until its thumbnail has arrived, matching the candidate picker's cadence.
+        private const long PreviewPollMilliseconds = 100;
+
         // The one open instance. Tracked directly rather than searched for: a search over
         // every loaded object can surface a never-shown instance, and closing one of those
         // throws from inside EditorWindow. Only windows that reached ShowUtility land here.
@@ -43,6 +47,11 @@ namespace com.amari_noa.materilune.editor
         private Material m_exampleSource;
         private Material m_exampleReplacement;
         private bool m_hasRule;
+
+        // One polling handle per recycled row, so a poll can pause once its thumbnail landed
+        // and resume only when the row is bound to a material still waiting for one.
+        private readonly Dictionary<Image, IVisualElementScheduledItem> m_previewPolls =
+            new Dictionary<Image, IVisualElementScheduledItem>();
 
         private VisualTreeAsset m_rowTemplate;
         private Label m_step;
@@ -307,7 +316,82 @@ namespace com.amari_noa.materilune.editor
         {
             var row = new VisualElement();
             m_rowTemplate.CloneTree(row);
+            var preview = row.Q<Image>("img-row-preview");
+            if (preview != null)
+            {
+                // Unity renders asset previews in the background, so the first call usually
+                // returns nothing. The row polls until its thumbnail has arrived and then
+                // pauses; binding resumes it when a new material comes in.
+                m_previewPolls[preview] = preview.schedule
+                    .Execute(() => PollPreview(preview))
+                    .Every(PreviewPollMilliseconds);
+            }
+
             return row;
+        }
+
+        /// <summary>
+        /// Refreshes one preview and pauses its polling once there is nothing left to wait for.
+        /// </summary>
+        /// <param name="preview">The image showing the preview.</param>
+        private void PollPreview(Image preview)
+        {
+            if (RefreshPreview(preview) && m_previewPolls.TryGetValue(preview, out var poll))
+            {
+                poll.Pause();
+            }
+        }
+
+        /// <summary>
+        /// Builds and binds one row outside the list view, so tests can inspect a row without
+        /// the layout pass that fills a virtualized list.
+        /// </summary>
+        /// <param name="index">The row index to bind.</param>
+        /// <returns>The bound row.</returns>
+        internal VisualElement BuildRowForTests(int index)
+        {
+            // A test can reach this before the editor has given the window its first layout
+            // pass; the window's own build step is safe to run directly and starts over from
+            // a cleared root, so running it twice costs nothing.
+            if (m_rows == null)
+            {
+                CreateGUI();
+            }
+
+            // The build step can decline (no entries after a domain reload, assets missing);
+            // an empty row then makes the caller's assertions fail plainly instead of this
+            // helper throwing on the absent template.
+            if (m_rowTemplate == null)
+            {
+                return new VisualElement();
+            }
+
+            var row = MakeRow();
+            BindRow(row, index);
+            return row;
+        }
+
+        /// <summary>
+        /// Puts the material's asset preview into the image once Unity has rendered it.
+        /// </summary>
+        /// <param name="preview">The image showing the preview.</param>
+        /// <returns>Whether the preview is settled, with nothing left to wait for.</returns>
+        private static bool RefreshPreview(Image preview)
+        {
+            var material = preview.userData as Material;
+            if (material == null)
+            {
+                preview.image = null;
+                return true;
+            }
+
+            if (preview.image != null)
+            {
+                return true;
+            }
+
+            preview.image = AssetPreview.GetAssetPreview(material);
+            return preview.image != null;
         }
 
         private void BindRow(VisualElement element, int index)
@@ -340,6 +424,23 @@ namespace com.amari_noa.materilune.editor
             toggle.visible = false;
             label.text = source == null ? string.Empty : source.name;
 
+            var preview = element.Q<Image>("img-row-preview");
+            if (preview != null)
+            {
+                // The row is recycled, so the previous material's thumbnail has to go before
+                // the new one is requested. The poll paused when the last thumbnail landed;
+                // a new material means new waiting, and the refresh pauses it again at once
+                // if there is nothing to wait for.
+                preview.image = null;
+                preview.userData = source;
+                if (m_previewPolls.TryGetValue(preview, out var poll))
+                {
+                    poll.Resume();
+                }
+
+                PollPreview(preview);
+            }
+
             // The whole row is the button in this step: clicking a name opens the candidates
             // for it, which is the only thing there is to do here.
             element.userData = index;
@@ -361,34 +462,71 @@ namespace com.amari_noa.materilune.editor
             toggle.SetValueWithoutNotify(m_selected.Contains(index));
             toggle.RegisterCallback<ChangeEvent<bool>, int>(OnRowToggled, index);
             label.text = DescribeItem(item);
+
+            // The thumbnail shows what the row will amount to: the replacement while the row
+            // is ticked, the material as it is while it is not (2026-08-18 の指示).
+            UpdatePlanPreview(element.Q<Image>("img-row-preview"), index);
+        }
+
+        /// <summary>
+        /// Points a plan row's thumbnail at the material the row currently stands for.
+        /// </summary>
+        /// <param name="preview">The image showing the preview.</param>
+        /// <param name="index">The plan row index.</param>
+        private void UpdatePlanPreview(Image preview, int index)
+        {
+            if (preview == null || index < 0 || index >= m_plan.Count)
+            {
+                return;
+            }
+
+            var item = m_plan[index];
+            var material = m_selected.Contains(index) && item.To != null ? item.To : item.From;
+            preview.image = null;
+            preview.userData = material;
+            if (m_previewPolls.TryGetValue(preview, out var poll))
+            {
+                poll.Resume();
+            }
+
+            PollPreview(preview);
         }
 
         private string DescribeItem(MateriluneBatchSwapPlanItem item)
         {
+            // Two lines per row (2026-08-18 の指示): the source name above, what happens to it
+            // below. The null checks read destroyed materials as absent, Unity's fake null
+            // included, instead of throwing on a replacement deleted after planning.
             var fromName = item.From == null ? string.Empty : item.From.name;
+            var toName = item.To == null ? string.Empty : item.To.name;
             switch (item.Status)
             {
                 case MateriluneBatchSwapStatus.Ready:
-                    return fromName + "  ->  " + item.To.name;
+                    return string.Format(
+                        MateriluneL10n.Get(
+                            "materilune.ui.batch_swap.row_ready",
+                            "{0}\n->  {1}"),
+                        fromName,
+                        toName);
                 case MateriluneBatchSwapStatus.Overwrite:
                     return string.Format(
                         MateriluneL10n.Get(
                             "materilune.ui.batch_swap.row_overwrite",
-                            "{0}  ->  {1}   (replaces the current setting)"),
+                            "{0}\n->  {1}   (replaces the current setting)"),
                         fromName,
-                        item.To.name);
+                        toName);
                 case MateriluneBatchSwapStatus.NoCandidate:
                     return string.Format(
                         MateriluneL10n.Get(
                             "materilune.ui.batch_swap.row_no_candidate",
-                            "{0}   (no candidate named {1})"),
+                            "{0}\n(no candidate named {1})"),
                         fromName,
                         item.ExpectedName);
                 default:
                     return string.Format(
                         MateriluneL10n.Get(
                             "materilune.ui.batch_swap.row_not_matched",
-                            "{0}   (the rule does not apply)"),
+                            "{0}\n(the rule does not apply)"),
                         fromName);
             }
         }
@@ -444,6 +582,13 @@ namespace com.amari_noa.materilune.editor
                 m_selected.Remove(index);
             }
 
+            // The tick decides which material the row's thumbnail shows, so the flip lands
+            // in the picture right away, without waiting for a list refresh.
+            if (changeEvent.currentTarget is VisualElement toggleElement && toggleElement.parent != null)
+            {
+                UpdatePlanPreview(toggleElement.parent.Q<Image>("img-row-preview"), index);
+            }
+
             RefreshSummary();
         }
 
@@ -465,6 +610,13 @@ namespace com.amari_noa.materilune.editor
 
         internal void ChooseExampleForTests(Material source, Material replacement)
         {
+            // Tests can arrive before the first layout pass; the plan step touches the built
+            // controls, so the build step runs here the same way BuildRowForTests runs it.
+            if (m_rows == null)
+            {
+                CreateGUI();
+            }
+
             OnExampleChosen(source, replacement);
         }
 

@@ -3,5 +3,6 @@
     <ui:VisualElement class="materilune-batch-swap-row">
         <ui:Toggle name="tgl-row" class="materilune-batch-swap-row__toggle" />
         <ui:Label name="lbl-row" class="materilune-batch-swap-row__name" />
+        <ui:Image name="img-row-preview" class="materilune-batch-swap-row__preview" />
     </ui:VisualElement>
 </ui:UXML>

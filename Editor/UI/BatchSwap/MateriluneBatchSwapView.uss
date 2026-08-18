@@ -71,12 +71,26 @@
     width: 16px;
 }
 
+/* nowrap keeps each of the two lines to one line: the break between the source name and
+   what happens to it comes from the text itself, and a long name must clip at the right
+   rather than fold into a third line the fixed row height cannot show. */
 .materilune-batch-swap-row__name {
     flex-grow: 1;
     flex-shrink: 1;
     min-width: 0;
     overflow: hidden;
+    white-space: nowrap;
     -unity-text-align: middle-left;
+}
+
+/* The material thumbnail at the row's right end, shown while the example is being picked.
+   The slot keeps its size whether or not a thumbnail is there — the plan step leaves it
+   empty — so a row never changes shape between the steps or while previews arrive. */
+.materilune-batch-swap-row__preview {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    margin-left: 4px;
 }
 
 /* Dimmed so a row that cannot be applied reads as unavailable rather than merely unticked.
