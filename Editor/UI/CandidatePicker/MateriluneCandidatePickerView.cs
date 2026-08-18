@@ -43,6 +43,11 @@ namespace com.amari_noa.materilune.editor
             MateriluneCandidateMode.SiblingDirectory,
         };
 
+        // One polling handle per recycled row, so a poll can pause once its thumbnail landed
+        // and resume only when the row is bound to a material still waiting for one.
+        private readonly Dictionary<Image, IVisualElementScheduledItem> m_previewPolls =
+            new Dictionary<Image, IVisualElementScheduledItem>();
+
         private VisualElement m_tabs;
         private Button m_sameDirectoryTab;
         private Button m_siblingDirectoryTab;
@@ -90,6 +95,7 @@ namespace com.amari_noa.materilune.editor
             m_rowTemplate = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(RowUxmlPath);
             m_candidateList.makeItem = MakeCandidateItem;
             m_candidateList.bindItem = BindCandidateItem;
+            m_candidateList.destroyItem = DestroyCandidateItem;
             m_candidateList.selectionType = SelectionType.Single;
             m_candidateList.selectionChanged += OnCandidateSelectionChanged;
             m_sameDirectoryTab.clicked += OnSameDirectoryTabClicked;
@@ -254,12 +260,40 @@ namespace com.amari_noa.materilune.editor
             if (preview != null)
             {
                 // Unity renders asset previews in the background, so the first call usually
-                // returns nothing. The row polls while it is attached to a panel and stops
-                // touching the image as soon as it has one for the material it is showing.
-                preview.schedule.Execute(() => RefreshPreview(preview)).Every(PreviewPollMilliseconds);
+                // returns nothing. The row polls until its thumbnail has arrived and then
+                // pauses; binding resumes it when a new material comes in.
+                m_previewPolls[preview] = preview.schedule
+                    .Execute(() => PollPreview(preview))
+                    .Every(PreviewPollMilliseconds);
             }
 
             return row;
+        }
+
+        /// <summary>
+        /// Refreshes one preview and pauses its polling once there is nothing left to wait for.
+        /// </summary>
+        /// <param name="preview">The image showing the preview.</param>
+        private void PollPreview(Image preview)
+        {
+            if (RefreshPreview(preview) && m_previewPolls.TryGetValue(preview, out var poll))
+            {
+                poll.Pause();
+            }
+        }
+
+        /// <summary>
+        /// Lets go of a row the list threw away, so rebuilt lists do not pile up handles.
+        /// </summary>
+        /// <param name="element">The row being discarded.</param>
+        private void DestroyCandidateItem(VisualElement element)
+        {
+            var preview = element == null ? null : element.Q<Image>("img-material-preview");
+            if (preview != null && m_previewPolls.TryGetValue(preview, out var poll))
+            {
+                poll.Pause();
+                m_previewPolls.Remove(preview);
+            }
         }
 
         private void BindCandidateItem(VisualElement element, int index)
@@ -287,10 +321,17 @@ namespace com.amari_noa.materilune.editor
             if (preview != null)
             {
                 // The row is recycled, so the previous material's thumbnail has to go before the
-                // new one is requested.
+                // new one is requested. The poll paused when the last thumbnail landed; a new
+                // material means new waiting, and the refresh pauses it again at once if there
+                // is nothing to wait for.
                 preview.image = null;
                 preview.userData = material;
-                RefreshPreview(preview);
+                if (m_previewPolls.TryGetValue(preview, out var poll))
+                {
+                    poll.Resume();
+                }
+
+                PollPreview(preview);
             }
         }
 
@@ -298,21 +339,23 @@ namespace com.amari_noa.materilune.editor
         /// Puts the material's asset preview into the image once Unity has rendered it.
         /// </summary>
         /// <param name="preview">The image showing the preview.</param>
-        private static void RefreshPreview(Image preview)
+        /// <returns>Whether the preview is settled, with nothing left to wait for.</returns>
+        private static bool RefreshPreview(Image preview)
         {
             var material = preview.userData as Material;
             if (material == null)
             {
                 preview.image = null;
-                return;
+                return true;
             }
 
             if (preview.image != null)
             {
-                return;
+                return true;
             }
 
             preview.image = AssetPreview.GetAssetPreview(material);
+            return preview.image != null;
         }
 
         /// <summary>

@@ -153,6 +153,7 @@ namespace com.amari_noa.materilune.editor
             m_rows.selectionType = SelectionType.None;
             m_rows.makeItem = MakeRow;
             m_rows.bindItem = BindRow;
+            m_rows.destroyItem = DestroyRow;
             m_apply.text = MateriluneL10n.Get("materilune.ui.batch_swap.apply", "Apply");
             m_cancel.text = MateriluneL10n.Get("materilune.ui.batch_swap.cancel", "Cancel");
             m_selectAll.text = MateriluneL10n.Get("materilune.ui.batch_swap.select_all", "Select all");
@@ -339,6 +340,20 @@ namespace com.amari_noa.materilune.editor
             if (RefreshPreview(preview) && m_previewPolls.TryGetValue(preview, out var poll))
             {
                 poll.Pause();
+            }
+        }
+
+        /// <summary>
+        /// Lets go of a row the list threw away, so rebuilt lists do not pile up handles.
+        /// </summary>
+        /// <param name="element">The row being discarded.</param>
+        private void DestroyRow(VisualElement element)
+        {
+            var preview = element == null ? null : element.Q<Image>("img-row-preview");
+            if (preview != null && m_previewPolls.TryGetValue(preview, out var poll))
+            {
+                poll.Pause();
+                m_previewPolls.Remove(preview);
             }
         }
 
