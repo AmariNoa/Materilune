@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.2.3] - 2026-08-18
+
+### Fixed
+
+- Material thumbnails kept asking for their picture a hundred times a second long after it had arrived, in the candidate picker and the batch swap window. The polling now stops once the picture has landed; nothing changes on screen, the editor just works less.
+
 ## [0.2.2] - 2026-08-18
 
 ### Added
