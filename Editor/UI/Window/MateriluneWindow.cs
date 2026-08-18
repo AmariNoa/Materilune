@@ -67,7 +67,6 @@ namespace com.amari_noa.materilune.editor
 
         private MateriluneSwap m_manager;
         private MateriluneSwapRoot m_activePreset;
-        private MateriluneSwapRoot m_lastActivePreset;
         private Renderer m_selectedRenderer;
         private SerializedObject m_rootSerializedObject;
         private SerializedObject m_overrideSerializedObject;
@@ -637,6 +636,12 @@ namespace com.amari_noa.materilune.editor
 
             if (selectedPreset != null)
             {
+                // Selecting a row makes that preset the one the avatar wears (spec 4.9,
+                // 2026-08-18): selection and the active radio always agree. Activation
+                // rebuilds and re-derives the selection from the scene; the direct display
+                // call covers the click on a row that is already active, where activation
+                // returns without changing anything.
+                ActivatePreset(selectedPreset);
                 DisplayPreset(selectedPreset);
                 return;
             }
@@ -730,7 +735,6 @@ namespace com.amari_noa.materilune.editor
                 {
                     m_manager = null;
                     m_activePreset = null;
-                    m_lastActivePreset = null;
                     m_selectedRenderer = null;
                     SetTargetField(null);
                     return;
@@ -741,15 +745,16 @@ namespace com.amari_noa.materilune.editor
                 {
                     m_manager = null;
                     m_activePreset = null;
-                    m_lastActivePreset = null;
                     m_selectedRenderer = null;
                     return;
                 }
 
+                // Selection and activation are one thing (spec 4.9, 2026-08-18): the edited
+                // preset is derived from the active one on every rebuild, so the two cannot
+                // drift apart. Only with every preset switched off does the display fall back
+                // to what was shown before, and selecting a row from there activates it.
                 var activePreset = FindActiveOnly(manager);
-                var activeChanged = activePreset != m_lastActivePreset;
-                m_lastActivePreset = activePreset;
-                m_activePreset = activeChanged && activePreset != null
+                m_activePreset = activePreset != null
                     ? activePreset
                     : ResolvePreset(manager, previousPreset);
 
@@ -1748,13 +1753,14 @@ namespace com.amari_noa.materilune.editor
         }
 
         /// <summary>
-        /// Shows a preset in the editing panels without touching its active state.
+        /// Shows a preset in the editing panels and the list highlight.
         /// </summary>
         /// <param name="preset">The preset to edit.</param>
         /// <remarks>
-        /// Selecting a row used to activate the preset as a side effect. With the activation
-        /// toggle in the row, the two are separate: the row picks what is edited, the toggle
-        /// picks what the avatar wears, and an inactive preset can be worked on in peace.
+        /// Display only: making a preset active is <see cref="ActivatePreset" />'s job, and
+        /// the rebuild keeps the two in step by deriving the edited preset from the active
+        /// one (spec 4.9, 2026-08-18). This helper gives the panels and the highlight their
+        /// immediate refresh, ahead of the deferred rebuild.
         /// </remarks>
         private void DisplayPreset(MateriluneSwapRoot preset)
         {
@@ -1862,10 +1868,17 @@ namespace com.amari_noa.materilune.editor
             Undo.SetCurrentGroupName(MateriluneL10n.Get(
                 "materilune.undo.add_preset",
                 "Add Materilune Preset"));
+            MateriluneSwapRoot createdPreset;
             try
             {
-                MateriluneSetupService.AddPreset(manager);
+                createdPreset = MateriluneSetupService.AddPreset(manager);
                 MateriluneSwapSynchronizer.Sync(manager);
+
+                // The preset the button just made is what gets worked on next, and selection
+                // means activation (spec 4.9, 2026-08-18): it goes active inside this same
+                // undo group, so one undo removes the preset and restores the previous
+                // active arrangement together.
+                ActivatePreset(createdPreset);
             }
             finally
             {
@@ -1873,6 +1886,7 @@ namespace com.amari_noa.materilune.editor
             }
 
             Rebuild();
+            DisplayPreset(createdPreset);
         }
 
         private void RemovePreset(MateriluneSwapRoot preset)

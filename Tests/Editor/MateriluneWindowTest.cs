@@ -225,11 +225,11 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         /// <summary>
-        /// Verifies a rebuild keeps showing the preset the user switched to, even when it is
-        /// not the active one.
+        /// Verifies a rebuild derives the displayed preset from the active one, so selection
+        /// and activation cannot drift apart (spec 4.9, 2026-08-18).
         /// </summary>
         [Test]
-        public void RebuildKeepsTheDisplayedPreset()
+        public void RebuildFollowsTheActivePreset()
         {
             var target = CreateTarget();
             CreateRenderer("Renderer", target.transform);
@@ -237,7 +237,7 @@ namespace com.amari_noa.materilune.tests.editor
             var secondPreset = MateriluneSetupService.AddPreset(manager);
             m_window = MateriluneWindow.OpenForTests();
             m_window.SetTargetForTests(target);
-            m_window.SetDisplayedPresetForTests(secondPreset);
+            m_window.ActivatePresetForTests(secondPreset);
 
             m_window.SetTargetForTests(target);
 
@@ -245,7 +245,8 @@ namespace com.amari_noa.materilune.tests.editor
         }
 
         /// <summary>
-        /// Verifies selecting another preset switches the displayed preset.
+        /// Verifies selecting another preset switches the displayed preset and, selection and
+        /// activation being one thing (spec 4.9, 2026-08-18), makes it the active one too.
         /// </summary>
         [Test]
         public void SelectingAnotherPresetSwitchesTheDisplayedPreset()
@@ -253,21 +254,24 @@ namespace com.amari_noa.materilune.tests.editor
             var target = CreateTarget();
             CreateRenderer("Renderer", target.transform);
             var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var firstPreset = manager.GetPresets()[0];
             var secondPreset = MateriluneSetupService.AddPreset(manager);
             m_window = MateriluneWindow.OpenForTests();
             m_window.SetTargetForTests(target);
-            Assert.That(m_window.DisplayedPreset, Is.SameAs(manager.GetPresets()[0]));
+            Assert.That(m_window.DisplayedPreset, Is.SameAs(firstPreset));
 
             var presetList = m_window.rootVisualElement.Q<ListView>("lv-preset-list");
             Assert.That(presetList, Is.Not.Null);
             presetList.SetSelection(1);
 
             Assert.That(m_window.DisplayedPreset, Is.SameAs(secondPreset));
+            Assert.That(secondPreset.gameObject.activeSelf, Is.True);
+            Assert.That(firstPreset.gameObject.activeSelf, Is.False);
         }
 
         /// <summary>
-        /// Verifies adding a preset leaves the preset the user is looking at on screen, since
-        /// a new preset is created inactive and does not change which preset is active.
+        /// Verifies a preset added through the service, arriving inactive, does not steal the
+        /// display: the window keeps following the preset that is active.
         /// </summary>
         [Test]
         public void AddingAPresetKeepsTheDisplayedPreset()
@@ -278,7 +282,7 @@ namespace com.amari_noa.materilune.tests.editor
             var secondPreset = MateriluneSetupService.AddPreset(manager);
             m_window = MateriluneWindow.OpenForTests();
             m_window.SetTargetForTests(target);
-            m_window.SetDisplayedPresetForTests(secondPreset);
+            m_window.ActivatePresetForTests(secondPreset);
 
             MateriluneSetupService.AddPreset(manager);
             m_window.SetTargetForTests(target);
@@ -307,20 +311,20 @@ namespace com.amari_noa.materilune.tests.editor
             m_window.rootVisualElement.Q<ListView>("lv-preset-list").SetSelection(0);
 
             Assert.That(m_window.DisplayedPreset, Is.SameAs(firstPreset));
+            Assert.That(firstPreset.gameObject.activeSelf, Is.True);
         }
 
         /// <summary>
-        /// Verifies selecting a row is a display act alone: nothing activates, nothing lands
-        /// on the undo stack.
+        /// Verifies selecting a row activates that preset, and one undo puts the previous
+        /// active arrangement back.
         /// </summary>
         /// <remarks>
-        /// Selection used to activate the preset as a side effect, and a test held that
-        /// behavior in place. The activation toggle replaced it (spec 4.9): the row picks what
-        /// is edited, the toggle picks what the avatar wears, and an inactive preset can be
-        /// edited without being switched on.
+        /// Selection and activation were separate between 0.1.0-beta.4 and 0.2.0; the split
+        /// proved confusing and was withdrawn (spec 4.9, 2026-08-18). The row and the radio
+        /// now always agree: choosing a preset anywhere makes it the one the avatar wears.
         /// </remarks>
         [Test]
-        public void SelectingAPresetDisplaysItWithoutActivatingIt()
+        public void SelectingAPresetActivatesIt()
         {
             var target = CreateTarget();
             CreateRenderer("Renderer", target.transform);
@@ -338,10 +342,9 @@ namespace com.amari_noa.materilune.tests.editor
             m_window.rootVisualElement.Q<ListView>("lv-preset-list").SetSelection(1);
 
             Assert.That(m_window.DisplayedPreset, Is.SameAs(secondPreset));
-            Assert.That(firstPreset.gameObject.activeSelf, Is.True, "selection must not deactivate");
-            Assert.That(secondPreset.gameObject.activeSelf, Is.False, "selection must not activate");
+            Assert.That(secondPreset.gameObject.activeSelf, Is.True, "selection must activate");
+            Assert.That(firstPreset.gameObject.activeSelf, Is.False, "the single-active rule holds");
 
-            // Nothing was changed, so an undo must find nothing to take back.
             Undo.FlushUndoRecordObjects();
             MateriluneInspectorIsolation.PerformUndo();
 
@@ -412,6 +415,74 @@ namespace com.amari_noa.materilune.tests.editor
 
             Assert.That(manager.GetPresets(), Has.Count.EqualTo(initialCount + 1));
             Assert.That(GetItemCount("lv-preset-list"), Is.EqualTo(initialCount + 1));
+        }
+
+        /// <summary>
+        /// Verifies the add button hands the display to the preset it just made and activates
+        /// it, selection and activation being one thing (spec 4.9, 2026-08-18). A preset added
+        /// through the service keeps the display where it is (the test above this group); the
+        /// button is the user asking for the new one.
+        /// </summary>
+        [Test]
+        public void PresetAddButtonSelectsTheNewPreset()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var firstPreset = manager.GetPresets()[0];
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            m_window.AddPresetForTests();
+
+            var presets = manager.GetPresets();
+            var createdPreset = presets[presets.Count - 1];
+            Assert.That(createdPreset, Is.Not.SameAs(firstPreset));
+            Assert.That(m_window.DisplayedPreset, Is.SameAs(createdPreset));
+            Assert.That(
+                m_window.rootVisualElement.Q<ListView>("lv-preset-list").selectedIndex,
+                Is.EqualTo(presets.Count - 1));
+            Assert.That(createdPreset.gameObject.activeSelf, Is.True);
+            Assert.That(firstPreset.gameObject.activeSelf, Is.False);
+        }
+
+        /// <summary>
+        /// Verifies one undo takes back the whole add: the preset itself and the active state
+        /// it took from the previous preset (spec 4.9, 2026-08-18).
+        /// </summary>
+        [Test]
+        public void PresetAddButtonUndoesInOneStep()
+        {
+            var target = CreateTarget();
+            CreateRenderer("Renderer", target.transform);
+            var manager = MateriluneSetupService.Setup(target, MateriluneOrphanAction.Keep);
+            var firstPreset = manager.GetPresets()[0];
+
+            // Clearing the selection raises selectionChanged, which drops the test target, so
+            // the window is opened and pointed at the target only after the isolation is done.
+            MateriluneInspectorIsolation.DeselectAll();
+            Undo.ClearAll();
+            m_window = MateriluneWindow.OpenForTests();
+            m_window.SetTargetForTests(target);
+
+            m_window.AddPresetForTests();
+            Assert.That(manager.GetPresets(), Has.Count.EqualTo(2));
+            Assert.That(firstPreset.gameObject.activeSelf, Is.False);
+
+            Undo.FlushUndoRecordObjects();
+            MateriluneInspectorIsolation.PerformUndo();
+
+            Assert.That(manager.GetPresets(), Has.Count.EqualTo(1));
+            Assert.That(firstPreset.gameObject.activeSelf, Is.True);
+
+            // The redo must bring the whole arrangement back too: the preset returns and
+            // takes the active state with it, in the same single step.
+            MateriluneInspectorIsolation.PerformRedo();
+
+            var redonePresets = manager.GetPresets();
+            Assert.That(redonePresets, Has.Count.EqualTo(2));
+            Assert.That(firstPreset.gameObject.activeSelf, Is.False);
+            Assert.That(redonePresets[redonePresets.Count - 1].gameObject.activeSelf, Is.True);
         }
 
         /// <summary>
