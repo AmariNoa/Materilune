@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.2.2] - 2026-08-18
+
+### Added
+
+- Every batch swap row now shows a material thumbnail. The example-picking screen shows the row's own material; the approval screen follows the tick, previewing what the row becomes while ticked and what it is while not.
+
+### Changed
+
+- The batch swap approval rows split into two lines: the source name above, its outcome (or the reason it cannot apply) below, so long names stay readable.
+
 ## [0.2.1] - 2026-08-18
 
 ### Changed

@@ -1,7 +1,7 @@
 {
   "name": "com.amari-noa.materilune",
   "displayName": "Materilune",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "unity": "2022.3",
   "license": "MIT",
   "description": "Material management tools for VRChat avatar customization, built on Modular Avatar Material Swap and NDMF.",
