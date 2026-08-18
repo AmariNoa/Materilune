@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.2.1] - 2026-08-18
+
+### Changed
+
+- The selected preset and the active one now stay in step at all times. Selecting a row activates that preset, and activating through the radio moves the selection along (the 0.1.0-beta.4 split that allowed editing an inactive preset has been withdrawn).
+- A newly created preset is selected and activated on the spot, and one undo takes back the addition and the active state together.
+
+### Fixed
+
+- The batch swap window could pile up copies with nothing saying which preset or mesh each one aimed at. Opening it again now replaces the window already open, so the one on screen always belongs to the button pressed last.
+
 ## [0.2.0] - 2026-08-18
 
 ### Added
