@@ -230,6 +230,59 @@ namespace com.amari_noa.materilune.tests.editor
             Assert.That(resolved, Is.SameAs(later));
         }
 
+        /// <summary>
+        /// Measures what inherited resolution costs on a large nested setup and logs it.
+        /// </summary>
+        /// <remarks>
+        /// The numbers decide whether a cache is worth building (profile before optimize).
+        /// Nothing asserts on time: machine speed would make such an assert flaky, so the
+        /// assert only pins that the measured path resolves the real answer.
+        /// </remarks>
+        [Test]
+        public void MeasureResolveForOverrideOnALargeSetup()
+        {
+            const int ExtraRendererCount = 40;
+            const int ResolvePasses = 200;
+
+            var shared = CreateMaterial();
+            var replacement = CreateMaterial();
+            var outerTarget = CreateAvatarRoot();
+            var innerTarget = CreateGameObject("Inner", outerTarget.transform);
+            var innerRenderer = CreateRenderer(innerTarget.transform, shared);
+            for (var index = 0; index < ExtraRendererCount; index++)
+            {
+                CreateRenderer(outerTarget.transform, CreateMaterial());
+            }
+
+            var outerManager = MateriluneSetupService.Setup(outerTarget, MateriluneOrphanAction.Keep);
+            var innerManager = MateriluneSetupService.Setup(innerTarget, MateriluneOrphanAction.Keep);
+            var outerPreset = outerManager.GetPresets()[0];
+            var innerPreset = innerManager.GetPresets()[0];
+            SetSwap(outerPreset, shared, replacement);
+            var innerOverride = FindOverrideFor(innerPreset, innerRenderer);
+            Assert.That(innerOverride, Is.Not.Null);
+
+            // The first call settles JIT and first-touch costs outside the measured window.
+            Assert.That(
+                MateriluneInheritedSwaps.ResolveForOverride(innerOverride, shared),
+                Is.SameAs(replacement));
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            for (var pass = 0; pass < ResolvePasses; pass++)
+            {
+                MateriluneInheritedSwaps.ResolveForOverride(innerOverride, shared);
+            }
+
+            stopwatch.Stop();
+            Debug.Log(string.Format(
+                "[Materilune perf] ResolveForOverride: extra renderers={0}, passes={1}, "
+                + "total={2:F2} ms, per call={3:F1} us",
+                ExtraRendererCount,
+                ResolvePasses,
+                stopwatch.Elapsed.TotalMilliseconds,
+                stopwatch.Elapsed.TotalMilliseconds * 1000.0 / ResolvePasses));
+        }
+
         private NestedSetups BuildNestedSetups(Material shared)
         {
             var outerTarget = CreateAvatarRoot();
