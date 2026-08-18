@@ -48,6 +48,41 @@ namespace com.amari_noa.materilune.tests.editor
             }
 
             m_testDirectory = null;
+
+            foreach (var window in Resources.FindObjectsOfTypeAll<MateriluneBatchSwapWindow>())
+            {
+                if (window != null)
+                {
+                    window.Close();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Verifies opening the window again replaces the one already open instead of stacking
+        /// a second one, so the single window on screen belongs to the button pressed last.
+        /// </summary>
+        [Test]
+        public void OpenReplacesTheWindowAlreadyOpen()
+        {
+            MateriluneBatchSwapWindow.Open(
+                new List<MateriluneMaterialSwapEntry>(),
+                MateriluneCandidateMode.None,
+                approved => { });
+            var firstWindows = Resources.FindObjectsOfTypeAll<MateriluneBatchSwapWindow>();
+            Assert.That(firstWindows, Has.Length.EqualTo(1));
+            var firstWindow = firstWindows[0];
+
+            MateriluneBatchSwapWindow.Open(
+                new List<MateriluneMaterialSwapEntry>(),
+                MateriluneCandidateMode.None,
+                approved => { });
+
+            // What survives must be the second window: the count alone would also pass if
+            // the first one somehow refused the replacement.
+            var remainingWindows = Resources.FindObjectsOfTypeAll<MateriluneBatchSwapWindow>();
+            Assert.That(remainingWindows, Has.Length.EqualTo(1));
+            Assert.That(remainingWindows[0], Is.Not.SameAs(firstWindow));
         }
 
         /// <summary>

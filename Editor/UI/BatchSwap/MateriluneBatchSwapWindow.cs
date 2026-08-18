@@ -27,6 +27,11 @@ namespace com.amari_noa.materilune.editor
         private const float WindowWidth = 520f;
         private const float WindowHeight = 380f;
 
+        // The one open instance. Tracked directly rather than searched for: a search over
+        // every loaded object can surface a never-shown instance, and closing one of those
+        // throws from inside EditorWindow. Only windows that reached ShowUtility land here.
+        private static MateriluneBatchSwapWindow s_openWindow;
+
         private readonly List<Material> m_sources = new List<Material>();
         private readonly List<MateriluneBatchSwapPlanItem> m_plan = new List<MateriluneBatchSwapPlanItem>();
         private readonly HashSet<int> m_selected = new HashSet<int>();
@@ -59,6 +64,14 @@ namespace com.amari_noa.materilune.editor
             MateriluneCandidateMode mode,
             Action<IReadOnlyList<MateriluneBatchSwapPlanItem>> onApply)
         {
+            // Only one of these at a time. Stacked windows left no way to tell which preset
+            // or mesh each one aimed at, so a press replaces whatever is open and the one
+            // window on screen always belongs to the button pressed last.
+            if (s_openWindow != null)
+            {
+                s_openWindow.Close();
+            }
+
             var window = CreateInstance<MateriluneBatchSwapWindow>();
             window.titleContent = new GUIContent(MateriluneL10n.Get(
                 "materilune.ui.batch_swap.title",
@@ -70,6 +83,15 @@ namespace com.amari_noa.materilune.editor
             window.m_onApply = onApply;
             window.minSize = new Vector2(WindowWidth, WindowHeight);
             window.ShowUtility();
+            s_openWindow = window;
+        }
+
+        private void OnDestroy()
+        {
+            if (s_openWindow == this)
+            {
+                s_openWindow = null;
+            }
         }
 
         private void CreateGUI()
